@@ -2,9 +2,9 @@ import 'dart:async';
 import 'dart:math';
 
 import 'package:flutter/material.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 
 import '../models/tile_model.dart';
+import '../services/coin_wallet.dart';
 import '../theme/app_colors.dart';
 import '../widgets/memory_tile.dart';
 
@@ -17,10 +17,16 @@ const List<(String emoji, Color color)> _fixedSymbols = [
 ];
 
 const int kPairsCount = 3; // يجب أن يطابق طول _fixedSymbols أعلاه
-const _mismatchPauseMs = 700;
+
+/// عدد المحاولات في الجلسة الواحدة، وعدد الفوز المطلوب لاجتيازها.
+const int kSessionAttempts = 5;
+const int kRequiredWins = 3;
+
+const _mismatchPauseMs = 900;
 const _matchPauseMs = 350;
-const _prefsBestTimeKey = 'best_time_ms';
-const _prefsBestAttemptsKey = 'best_attempts';
+const _nextAttemptDelayMs = 1100;
+
+enum _AttemptResult { pending, win, loss }
 
 class GameScreen extends StatefulWidget {
   const GameScreen({super.key});
@@ -36,41 +42,17 @@ class _GameScreenState extends State<GameScreen> {
   int? _firstIndex;
   final Set<int> _wrongIndices = {};
   bool _busy = false;
-  bool _won = false;
 
-  /// عدد مرات إعادة اللعبة بسبب اختيار خاطئ خلال الجولة الحالية.
-  int _attempts = 0;
-
-  final Stopwatch _stopwatch = Stopwatch();
-  Timer? _ticker;
-  Duration _elapsed = Duration.zero;
-
-  Duration? _bestTime;
-  int? _bestAttempts;
+  /// نتيجة كل محاولة من محاولات الجلسة الخمس.
+  final List<_AttemptResult> _attemptResults =
+      List.filled(kSessionAttempts, _AttemptResult.pending);
+  int _attemptIndex = 0; // 0-based، المحاولة الحالية
+  int get _winsCount => _attemptResults.where((r) => r == _AttemptResult.win).length;
 
   @override
   void initState() {
     super.initState();
-    _loadBestScores();
-    _startNewRound(resetAttempts: true);
-  }
-
-  @override
-  void dispose() {
-    _ticker?.cancel();
-    _stopwatch.stop();
-    super.dispose();
-  }
-
-  Future<void> _loadBestScores() async {
-    final prefs = await SharedPreferences.getInstance();
-    final bestMs = prefs.getInt(_prefsBestTimeKey);
-    final bestAttempts = prefs.getInt(_prefsBestAttemptsKey);
-    if (!mounted) return;
-    setState(() {
-      _bestTime = bestMs != null ? Duration(milliseconds: bestMs) : null;
-      _bestAttempts = bestAttempts;
-    });
+    _startAttempt();
   }
 
   List<TileModel> _buildShuffledTiles() {
@@ -85,28 +67,17 @@ class _GameScreenState extends State<GameScreen> {
     return tiles;
   }
 
-  void _startNewRound({bool resetAttempts = false}) {
-    _ticker?.cancel();
-    _stopwatch
-      ..reset()
-      ..start();
-    _ticker = Timer.periodic(const Duration(seconds: 1), (_) {
-      if (!mounted) return;
-      setState(() => _elapsed = _stopwatch.elapsed);
-    });
+  void _startAttempt() {
     setState(() {
       _tiles = _buildShuffledTiles();
       _firstIndex = null;
       _wrongIndices.clear();
       _busy = false;
-      _won = false;
-      _elapsed = Duration.zero;
-      if (resetAttempts) _attempts = 0;
     });
   }
 
   Future<void> _onTileTap(int index) async {
-    if (_busy || _won) return;
+    if (_busy) return;
     final tile = _tiles[index];
     if (tile.revealed || tile.matched) return;
 
@@ -119,6 +90,7 @@ class _GameScreenState extends State<GameScreen> {
 
     final firstIndex = _firstIndex!;
     final secondIndex = index;
+    _firstIndex = null;
     setState(() => _busy = true);
 
     final isMatch = _tiles[firstIndex].pairId == _tiles[secondIndex].pairId;
@@ -129,96 +101,104 @@ class _GameScreenState extends State<GameScreen> {
       setState(() {
         _tiles[firstIndex].matched = true;
         _tiles[secondIndex].matched = true;
-        _firstIndex = null;
         _busy = false;
       });
       if (_tiles.every((t) => t.matched)) {
-        _onWin();
+        _finishAttempt(won: true);
       }
     } else {
       setState(() => _wrongIndices.addAll([firstIndex, secondIndex]));
       await Future.delayed(const Duration(milliseconds: _mismatchPauseMs));
       if (!mounted) return;
-      _attempts++;
-      _showRestartSnackBar();
-      _startNewRound();
+      _finishAttempt(won: false);
     }
   }
 
-  void _showRestartSnackBar() {
+  void _finishAttempt({required bool won}) {
+    setState(() {
+      _attemptResults[_attemptIndex] = won ? _AttemptResult.win : _AttemptResult.loss;
+    });
+
+    _showAttemptResultSnackBar(won);
+
+    final isLastAttempt = _attemptIndex == kSessionAttempts - 1;
+    if (isLastAttempt) {
+      Future.delayed(const Duration(milliseconds: _nextAttemptDelayMs), () {
+        if (!mounted) return;
+        _showSessionResultDialog();
+      });
+    } else {
+      Future.delayed(const Duration(milliseconds: _nextAttemptDelayMs), () {
+        if (!mounted) return;
+        setState(() => _attemptIndex++);
+        _startAttempt();
+      });
+    }
+  }
+
+  void _showAttemptResultSnackBar(bool won) {
     ScaffoldMessenger.of(context).hideCurrentSnackBar();
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('❌ البلاطتان غير متطابقتين! تُعاد اللعبة من جديد.'),
-        duration: Duration(seconds: 2),
-        backgroundColor: AppColors.wrong,
+      SnackBar(
+        content: Text(
+          won
+              ? '✅ فزت بالمحاولة ${_attemptIndex + 1}!'
+              : '❌ خسرت المحاولة ${_attemptIndex + 1} — البلاطتان غير متطابقتين.',
+        ),
+        duration: const Duration(milliseconds: _nextAttemptDelayMs),
+        backgroundColor: won ? AppColors.matched : AppColors.wrong,
       ),
     );
   }
 
-  Future<void> _onWin() async {
-    _ticker?.cancel();
-    _stopwatch.stop();
-    final elapsed = _stopwatch.elapsed;
-    setState(() => _won = true);
-
-    final prefs = await SharedPreferences.getInstance();
-    var newBestTime = false;
-    var newBestAttempts = false;
-    if (_bestTime == null || elapsed < _bestTime!) {
-      newBestTime = true;
-      await prefs.setInt(_prefsBestTimeKey, elapsed.inMilliseconds);
-    }
-    if (_bestAttempts == null || _attempts < _bestAttempts!) {
-      newBestAttempts = true;
-      await prefs.setInt(_prefsBestAttemptsKey, _attempts);
-    }
-    if (!mounted) return;
-    setState(() {
-      if (newBestTime) _bestTime = elapsed;
-      if (newBestAttempts) _bestAttempts = _attempts;
-    });
-    _showWinDialog(elapsed, newBestTime, newBestAttempts);
-  }
-
-  void _showWinDialog(Duration elapsed, bool newBestTime, bool newBestAttempts) {
+  void _showSessionResultDialog() {
+    final passed = _winsCount >= kRequiredWins;
     showDialog<void>(
       context: context,
       barrierDismissible: false,
       builder: (context) => AlertDialog(
         backgroundColor: AppColors.backgroundLight,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: const Text('🎉 أحسنت! لقد فزت', style: TextStyle(color: AppColors.textOnDark)),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text('⏱️ الوقت: ${_formatDuration(elapsed)}${newBestTime ? '  🏆 رقم قياسي جديد!' : ''}',
-                style: const TextStyle(color: AppColors.textOnDark)),
-            const SizedBox(height: 6),
-            Text(
-              '🔁 عدد الإعادات بسبب الأخطاء: $_attempts${newBestAttempts ? '  🏆 رقم قياسي جديد!' : ''}',
-              style: const TextStyle(color: AppColors.textOnDark),
-            ),
-          ],
+        title: Text(
+          passed ? '🎉 اجتزت التحدي!' : '😢 لم تجتز التحدي',
+          style: const TextStyle(color: AppColors.textOnDark),
+        ),
+        content: Text(
+          'فزت في $_winsCount من $kSessionAttempts محاولات.\n'
+          '${passed ? 'أحسنت! حققت الحد الأدنى المطلوب ($kRequiredWins فوز).' : 'كنت بحاجة إلى $kRequiredWins فوز على الأقل.'}',
+          style: const TextStyle(color: AppColors.textOnDark, height: 1.6),
         ),
         actions: [
-          FilledButton(
+          TextButton(
             onPressed: () {
-              Navigator.of(context).pop();
-              _startNewRound(resetAttempts: true);
+              Navigator.of(context).pop(); // إغلاق النافذة
+              Navigator.of(context).pop(); // العودة للشاشة الرئيسية
             },
-            child: const Text('العب مرة أخرى'),
+            child: const Text('العودة للرئيسية'),
+          ),
+          FilledButton(
+            onPressed: () async {
+              final navigator = Navigator.of(context);
+              final newBalance = await CoinWallet.trySpendSessionCost();
+              if (!mounted) return;
+              navigator.pop(); // إغلاق النافذة
+              if (newBalance == null) {
+                navigator.pop(); // لا يوجد رصيد كافٍ، العودة للرئيسية
+                return;
+              }
+              setState(() {
+                _attemptIndex = 0;
+                for (var i = 0; i < kSessionAttempts; i++) {
+                  _attemptResults[i] = _AttemptResult.pending;
+                }
+              });
+              _startAttempt();
+            },
+            child: Text('العب مرة أخرى (${CoinWallet.costPerSession} 🪙)'),
           ),
         ],
       ),
     );
-  }
-
-  String _formatDuration(Duration d) {
-    final minutes = d.inMinutes.remainder(60).toString().padLeft(2, '0');
-    final seconds = d.inSeconds.remainder(60).toString().padLeft(2, '0');
-    return '$minutes:$seconds';
   }
 
   @override
@@ -229,18 +209,11 @@ class _GameScreenState extends State<GameScreen> {
         backgroundColor: AppColors.background,
         elevation: 0,
         title: const Text('ذاكرة البلاطات'),
-        actions: [
-          IconButton(
-            tooltip: 'إعادة البدء',
-            icon: const Icon(Icons.refresh_rounded),
-            onPressed: () => _startNewRound(resetAttempts: true),
-          ),
-        ],
       ),
       body: SafeArea(
         child: Column(
           children: [
-            _buildStatsBar(),
+            _buildProgressBar(),
             const SizedBox(height: 8),
             Expanded(child: _buildGrid()),
           ],
@@ -249,35 +222,54 @@ class _GameScreenState extends State<GameScreen> {
     );
   }
 
-  Widget _buildStatsBar() {
+  Widget _buildProgressBar() {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 20),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      child: Column(
         children: [
-          _statChip(Icons.timer_outlined, _formatDuration(_elapsed)),
-          _statChip(Icons.replay_rounded, '$_attempts'),
-          if (_bestTime != null) _statChip(Icons.emoji_events_outlined, _formatDuration(_bestTime!)),
+          Text(
+            'المحاولة ${_attemptIndex + 1} من $kSessionAttempts — يلزم $kRequiredWins فوز',
+            style: const TextStyle(color: AppColors.textOnDark, fontWeight: FontWeight.bold),
+          ),
+          const SizedBox(height: 10),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              for (var i = 0; i < kSessionAttempts; i++) ...[
+                if (i > 0) const SizedBox(width: 8),
+                _attemptPip(_attemptResults[i]),
+              ],
+            ],
+          ),
         ],
       ),
     );
   }
 
-  Widget _statChip(IconData icon, String label) {
+  Widget _attemptPip(_AttemptResult result) {
+    late final Color color;
+    late final Widget child;
+    switch (result) {
+      case _AttemptResult.win:
+        color = AppColors.matched;
+        child = const Icon(Icons.check, size: 16, color: Colors.white);
+      case _AttemptResult.loss:
+        color = AppColors.wrong;
+        child = const Icon(Icons.close, size: 16, color: Colors.white);
+      case _AttemptResult.pending:
+        color = AppColors.tileBack;
+        child = const SizedBox.shrink();
+    }
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+      width: 28,
+      height: 28,
+      alignment: Alignment.center,
       decoration: BoxDecoration(
-        color: AppColors.tileBack.withValues(alpha: 0.5),
-        borderRadius: BorderRadius.circular(20),
+        color: color,
+        shape: BoxShape.circle,
+        border: Border.all(color: AppColors.tileBackHighlight, width: 1.5),
       ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, size: 16, color: AppColors.accent),
-          const SizedBox(width: 6),
-          Text(label, style: const TextStyle(color: AppColors.textOnDark, fontWeight: FontWeight.bold)),
-        ],
-      ),
+      child: child,
     );
   }
 
