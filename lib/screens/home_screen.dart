@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../services/coin_wallet.dart';
 import '../theme/app_colors.dart';
+import 'coin_store_screen.dart';
 import 'game_screen.dart';
 
 /// شاشة البداية: عنوان اللعبة، شرح مختصر لقواعدها، رصيد الكوينز، وزر بدء
@@ -48,6 +49,13 @@ class _HomeScreenState extends State<HomeScreen> {
     _loadBalance(); // تحديث الرصيد المعروض بعد العودة (قد تغيّر أثناء اللعب)
   }
 
+  Future<void> _onStorePressed() async {
+    await Navigator.of(context).push(
+      MaterialPageRoute(builder: (_) => const CoinStoreScreen()),
+    );
+    _loadBalance();
+  }
+
   @override
   Widget build(BuildContext context) {
     final balance = _balance;
@@ -73,7 +81,19 @@ class _HomeScreenState extends State<HomeScreen> {
                   ),
                 ),
                 const SizedBox(height: 12),
-                _coinBadge(balance),
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    _coinBadge(balance),
+                    const SizedBox(width: 8),
+                    IconButton.filled(
+                      style: IconButton.styleFrom(backgroundColor: AppColors.accent),
+                      tooltip: 'شحن الكوينز',
+                      icon: const Icon(Icons.add, color: AppColors.background),
+                      onPressed: _onStorePressed,
+                    ),
+                  ],
+                ),
                 const SizedBox(height: 16),
                 Container(
                   padding: const EdgeInsets.all(16),

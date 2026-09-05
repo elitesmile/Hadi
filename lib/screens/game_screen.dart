@@ -151,8 +151,14 @@ class _GameScreenState extends State<GameScreen> {
     );
   }
 
-  void _showSessionResultDialog() {
+  Future<void> _showSessionResultDialog() async {
     final passed = _winsCount >= kRequiredWins;
+    int? rewardedBalance;
+    if (passed) {
+      rewardedBalance = await CoinWallet.addCoins(CoinWallet.challengeRewardCoins);
+    }
+    if (!mounted) return;
+
     showDialog<void>(
       context: context,
       barrierDismissible: false,
@@ -165,7 +171,8 @@ class _GameScreenState extends State<GameScreen> {
         ),
         content: Text(
           'فزت في $_winsCount من $kSessionAttempts محاولات.\n'
-          '${passed ? 'أحسنت! حققت الحد الأدنى المطلوب ($kRequiredWins فوز).' : 'كنت بحاجة إلى $kRequiredWins فوز على الأقل.'}',
+          '${passed ? 'أحسنت! حققت الحد الأدنى المطلوب ($kRequiredWins فوز).' : 'كنت بحاجة إلى $kRequiredWins فوز على الأقل.'}'
+          '${passed ? '\n\n🏆 جائزة افتراضية: +${CoinWallet.challengeRewardCoins} كوين!\nرصيدك الآن: $rewardedBalance كوين.' : ''}',
           style: const TextStyle(color: AppColors.textOnDark, height: 1.6),
         ),
         actions: [
