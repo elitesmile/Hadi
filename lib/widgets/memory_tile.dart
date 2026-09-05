@@ -3,9 +3,11 @@ import 'package:flutter/material.dart';
 import '../theme/app_colors.dart';
 
 /// بطاقة بلاطة واحدة مع أنيميشن قلب ثلاثي الأبعاد بين الوجه الخلفي
-/// (مغلقة) والوجه الأمامي (الإيموجي).
+/// (مغلقة) والوجه الأمامي (شارة دائرية ملوّنة تحتضن الرمز لتكون
+/// واضحة وبارزة وكبيرة).
 class MemoryTile extends StatelessWidget {
   final String emoji;
+  final Color accentColor;
   final bool faceUp;
   final bool matched;
   final bool wrong;
@@ -14,6 +16,7 @@ class MemoryTile extends StatelessWidget {
   const MemoryTile({
     super.key,
     required this.emoji,
+    required this.accentColor,
     required this.faceUp,
     required this.matched,
     required this.wrong,
@@ -53,23 +56,45 @@ class MemoryTile extends StatelessWidget {
     return _tileContainer(
       color: AppColors.tileBack,
       borderColor: AppColors.tileBackHighlight,
-      child: const Icon(
-        Icons.help_outline_rounded,
-        color: AppColors.tileBackHighlight,
-        size: 30,
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final shortSide = math.min(constraints.maxWidth, constraints.maxHeight);
+          return Icon(
+            Icons.help_outline_rounded,
+            color: AppColors.tileBackHighlight,
+            size: shortSide * 0.42,
+          );
+        },
       ),
     );
   }
 
   Widget _buildFront() {
     return _tileContainer(
-      color: matched ? AppColors.matched.withValues(alpha: 0.25) : AppColors.tileFront,
+      color: matched ? AppColors.matched.withValues(alpha: 0.18) : AppColors.tileFront,
       borderColor: wrong
           ? AppColors.wrong
           : matched
               ? AppColors.matched
               : AppColors.tileBackHighlight,
-      child: Text(emoji, style: const TextStyle(fontSize: 34)),
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final shortSide = math.min(constraints.maxWidth, constraints.maxHeight);
+          // شارة دائرية ملوّنة خلف الرمز تجعله بارزًا وواضحًا وكبيرًا.
+          final badgeSize = shortSide * 0.84;
+          return Container(
+            width: badgeSize,
+            height: badgeSize,
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: accentColor.withValues(alpha: matched ? 0.35 : 0.22),
+              border: Border.all(color: accentColor, width: 2.5),
+            ),
+            child: Text(emoji, style: TextStyle(fontSize: badgeSize * 0.55)),
+          );
+        },
+      ),
     );
   }
 

@@ -8,18 +8,15 @@ import '../models/tile_model.dart';
 import '../theme/app_colors.dart';
 import '../widgets/memory_tile.dart';
 
-/// مجموعة الرموز المتاحة (فواكه، حيوانات، أشكال). تُختار 3 منها عشوائيًا
-/// في كل جولة لتكوين 3 أزواج = 6 بلاطات.
-const List<String> _emojiPool = [
-  // فواكه
-  '🍎', '🍌', '🍇', '🍉', '🍓', '🍍', '🥝', '🍑',
-  // حيوانات
-  '🐶', '🐱', '🐵', '🦁', '🐸', '🐼', '🐰', '🦊',
-  // أشكال وأخرى
-  '⭐', '❤️', '🔵', '🟩', '🔶', '🍀',
+/// الرموز الثابتة الثلاثة للعبة: طائرة، سيارة، وباخرة — كل رمز بخلفية
+/// دائرية بلون مميّز يجعله واضحًا وبارزًا عند القلب.
+const List<(String emoji, Color color)> _fixedSymbols = [
+  ('✈️', Color(0xFF60A5FA)), // طائرة - أزرق سماوي
+  ('🚗', Color(0xFFFB923C)), // سيارة - برتقالي
+  ('🚢', Color(0xFF2DD4BF)), // باخرة - فيروزي
 ];
 
-const int kPairsCount = 3;
+const int kPairsCount = 3; // يجب أن يطابق طول _fixedSymbols أعلاه
 const _mismatchPauseMs = 700;
 const _matchPauseMs = 350;
 const _prefsBestTimeKey = 'best_time_ms';
@@ -77,11 +74,11 @@ class _GameScreenState extends State<GameScreen> {
   }
 
   List<TileModel> _buildShuffledTiles() {
-    final chosenEmojis = (_emojiPool.toList()..shuffle(_random)).take(kPairsCount).toList();
     final tiles = <TileModel>[];
-    for (var pairId = 0; pairId < chosenEmojis.length; pairId++) {
+    for (var pairId = 0; pairId < _fixedSymbols.length; pairId++) {
+      final (emoji, color) = _fixedSymbols[pairId];
       for (var copy = 0; copy < 2; copy++) {
-        tiles.add(TileModel(id: pairId * 2 + copy, pairId: pairId, emoji: chosenEmojis[pairId]));
+        tiles.add(TileModel(id: pairId * 2 + copy, pairId: pairId, emoji: emoji, accentColor: color));
       }
     }
     tiles.shuffle(_random);
@@ -299,6 +296,7 @@ class _GameScreenState extends State<GameScreen> {
           final tile = _tiles[index];
           return MemoryTile(
             emoji: tile.emoji,
+            accentColor: tile.accentColor,
             faceUp: tile.revealed,
             matched: tile.matched,
             wrong: _wrongIndices.contains(index),
