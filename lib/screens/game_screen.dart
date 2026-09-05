@@ -8,8 +8,8 @@ import '../models/tile_model.dart';
 import '../theme/app_colors.dart';
 import '../widgets/memory_tile.dart';
 
-/// مجموعة الرموز المتاحة (فواكه، حيوانات، أشكال). تُختار 5 منها عشوائيًا
-/// في كل جولة لتكوين 5 أزواج = 10 بلاطات.
+/// مجموعة الرموز المتاحة (فواكه، حيوانات، أشكال). تُختار 3 منها عشوائيًا
+/// في كل جولة لتكوين 3 أزواج = 6 بلاطات.
 const List<String> _emojiPool = [
   // فواكه
   '🍎', '🍌', '🍇', '🍉', '🍓', '🍍', '🥝', '🍑',
@@ -19,7 +19,7 @@ const List<String> _emojiPool = [
   '⭐', '❤️', '🔵', '🟩', '🔶', '🍀',
 ];
 
-const int kPairsCount = 5;
+const int kPairsCount = 3;
 const _mismatchPauseMs = 700;
 const _matchPauseMs = 350;
 const _prefsBestTimeKey = 'best_time_ms';
@@ -290,10 +290,10 @@ class _GameScreenState extends State<GameScreen> {
       child: GridView.builder(
         itemCount: _tiles.length,
         gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-          crossAxisCount: 5,
-          crossAxisSpacing: 10,
-          mainAxisSpacing: 10,
-          childAspectRatio: 0.75,
+          crossAxisCount: 3,
+          crossAxisSpacing: 14,
+          mainAxisSpacing: 14,
+          childAspectRatio: 0.85,
         ),
         itemBuilder: (context, index) {
           final tile = _tiles[index];

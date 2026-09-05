@@ -14,15 +14,15 @@ void main() {
     expect(find.text('ابدأ اللعب'), findsOneWidget);
   });
 
-  testWidgets('الضغط على "ابدأ اللعب" يفتح لوحة من 10 بلاطات مقلوبة', (WidgetTester tester) async {
+  testWidgets('الضغط على "ابدأ اللعب" يفتح لوحة من 6 بلاطات مقلوبة', (WidgetTester tester) async {
     await tester.pumpWidget(const ThakiratAlbilatApp());
 
     await tester.tap(find.text('ابدأ اللعب'));
     await tester.pumpAndSettle();
 
-    expect(find.byType(MemoryTile), findsNWidgets(10));
+    expect(find.byType(MemoryTile), findsNWidgets(6));
     // كل البلاطات تبدأ مقلوبة (تعرض أيقونة الاستفهام على ظهرها).
-    expect(find.byIcon(Icons.help_outline_rounded), findsNWidgets(10));
+    expect(find.byIcon(Icons.help_outline_rounded), findsNWidgets(6));
   });
 
   testWidgets('الضغط على بلاطة واحدة يقلبها لتُظهر وجهها', (WidgetTester tester) async {
@@ -33,7 +33,7 @@ void main() {
     await tester.tap(find.byType(MemoryTile).first);
     await tester.pumpAndSettle();
 
-    // بلاطة واحدة أصبحت مكشوفة، فتبقى 9 فقط تُظهر ظهر البلاطة.
-    expect(find.byIcon(Icons.help_outline_rounded), findsNWidgets(9));
+    // بلاطة واحدة أصبحت مكشوفة، فتبقى 5 فقط تُظهر ظهر البلاطة.
+    expect(find.byIcon(Icons.help_outline_rounded), findsNWidgets(5));
   });
 }

@@ -36,7 +36,7 @@ class HomeScreen extends StatelessWidget {
                     borderRadius: BorderRadius.circular(16),
                   ),
                   child: const Text(
-                    '10 بلاطات مقلوبة تخفي 5 أزواج متشابهة.\n'
+                    '6 بلاطات مقلوبة تخفي 3 أزواج متشابهة.\n'
                     'اختر بلاطتين في كل مرة، وإذا لم تتطابقا فستُعاد اللعبة من جديد!\n'
                     'حاول إنهاء اللعبة بأقل عدد من المحاولات وأسرع وقت ممكن.',
                     textAlign: TextAlign.center,
