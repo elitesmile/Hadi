@@ -2,11 +2,13 @@
 
 لعبة ذاكرة بسيطة مبنية بـ Flutter: 6 بلاطات مقلوبة تخفي 3 أزواج من رموز
 ثابتة وواضحة (✈️ طائرة، 🚗 سيارة، 🚢 باخرة) بشارات ملوّنة كبيرة. كل تحدٍّ
-يتكوّن من **5 محاولات**، ويجب الفوز في **3 منها على الأقل** لاجتياز
+يتكوّن من **5 محاولات**، ويجب الفوز في **2 منها على الأقل** لاجتياز
 التحدي — وكل مرة تريد اللعب فيها تُخصم **50 كوين** من رصيدك (يبدأ الرصيد
 بـ 200 كوين محفوظة محليًا على الجهاز). اجتياز التحدي يمنحك **جائزة
 افتراضية داخل اللعبة** (5000 كوين إضافية — ليست مالًا حقيقيًا)، ويمكن
-أيضًا شحن الرصيد عبر حزم شراء داخل التطبيق (In-App Purchase).
+أيضًا شحن الرصيد عبر حزم شراء داخل التطبيق (In-App Purchase)، أو مشاهدة
+إعلان مكافأة مقابل 20 كوين مجانًا. يمكن أيضًا شراء "إزالة الإعلانات"
+نهائيًا، أو فتح مجموعات أشكال بديلة (أعماق البحر، الفضاء) من المتجر.
 
 ## التشغيل محليًا
 
@@ -26,14 +28,18 @@ flutter test
 
 ```
 lib/
-  main.dart                     نقطة الدخول وإعداد MaterialApp
+  main.dart                     نقطة الدخول، تهيئة الإعلانات، وإعداد MaterialApp
   models/tile_model.dart        نموذج بيانات البلاطة
   models/coin_package.dart      حزم شراء الكوينز داخل التطبيق
-  screens/home_screen.dart      شاشة البداية
+  models/tile_theme.dart        مجموعات الأشكال البديلة القابلة للشراء
+  screens/home_screen.dart      شاشة البداية (رصيد، إعلان مكافأة، بانر)
   screens/game_screen.dart      شاشة اللعب ومنطق اللعبة كاملًا
-  screens/coin_store_screen.dart  شاشة شحن الكوينز (IAP)
+  screens/coin_store_screen.dart  المتجر: كوينز، إزالة إعلانات، أشكال
   services/coin_wallet.dart     رصيد الكوينز المحفوظ محليًا
-  services/store_service.dart   طبقة الشراء داخل التطبيق
+  services/store_service.dart   طبقة الشراء داخل التطبيق (IAP)
+  services/ads_service.dart     إدارة إعلانات AdMob (بيني/مكافأة/بانر)
+  services/ads_entitlement.dart تتبّع شراء "إزالة الإعلانات"
+  services/theme_unlocks.dart   تتبّع مجموعات الأشكال المملوكة/المفعّلة
   widgets/memory_tile.dart      ودجت البلاطة مع أنيميشن القلب
   theme/app_colors.dart         لوحة الألوان الموحّدة
 test/widget_test.dart       اختبارات الواجهة والمنطق الأساسي
@@ -53,7 +59,9 @@ GitHub Actions (`.github/workflows/build.yml`) — راجع الأدلة الت�
 - [`docs/PUBLISHING_IOS.md`](docs/PUBLISHING_IOS.md) — بناء وتوقيع ونشر
   نسخة iOS على App Store (عبر Codemagic أو جهاز Mac).
 - [`docs/PUBLISHING_IAP.md`](docs/PUBLISHING_IAP.md) — إنشاء منتجات شحن
-  الكوينز في المتجرين قبل أن يعمل الشراء الحقيقي.
+  الكوينز/إزالة الإعلانات/الأشكال في المتجرين قبل أن يعمل الشراء الحقيقي.
+- [`docs/PUBLISHING_ADS.md`](docs/PUBLISHING_ADS.md) — ربط حساب AdMob
+  الحقيقي واستبدال معرّفات الإعلانات التجريبية قبل النشر.
 
 سياسة الخصوصية الجاهزة للاستخدام في المتجرين:
 https://claude.ai/code/artifact/d0843028-1373-4a9e-a29a-a1147313d9b2

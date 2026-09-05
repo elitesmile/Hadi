@@ -48,5 +48,19 @@
 	<true/>
 	<key>UIApplicationSupportsIndirectInputEvents</key>
 	<true/>
+	<!-- معرّف تطبيق AdMob التجريبي الرسمي من جوجل. استبدله بمعرّف تطبيقك
+	     الحقيقي من حساب AdMob قبل النشر — راجع docs/PUBLISHING_ADS.md -->
+	<key>GADApplicationIdentifier</key>
+	<string>ca-app-pub-3940256099942544~1458002511</string>
+	<!-- رسالة طلب إذن تتبّع الإعلانات (ATT) المطلوبة في iOS 14+ -->
+	<key>NSUserTrackingUsageDescription</key>
+	<string>نستخدم هذا الإذن لعرض إعلانات أكثر ملاءمة لك داخل اللعبة.</string>
+	<key>SKAdNetworkItems</key>
+	<array>
+		<dict>
+			<key>SKAdNetworkIdentifier</key>
+			<string>cstr6suwn9.skadnetwork</string>
+		</dict>
+	</array>
 </dict>
 </plist>

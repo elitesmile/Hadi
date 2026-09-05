@@ -20,7 +20,7 @@ const int kPairsCount = 3; // يجب أن يطابق طول _fixedSymbols أعل
 
 /// عدد المحاولات في الجلسة الواحدة، وعدد الفوز المطلوب لاجتيازها.
 const int kSessionAttempts = 5;
-const int kRequiredWins = 3;
+const int kRequiredWins = 2;
 
 const _mismatchPauseMs = 900;
 const _matchPauseMs = 350;

@@ -2,9 +2,14 @@ import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 
 import 'screens/home_screen.dart';
+import 'services/ads_service.dart';
 import 'theme/app_colors.dart';
 
 void main() {
+  WidgetsFlutterBinding.ensureInitialized();
+  // لا ننتظر التهيئة قبل عرض الواجهة حتى لا تتأخر شاشة البداية بسبب
+  // الشبكة أو موافقة الخصوصية (UMP) — الإعلانات تُحمَّل في الخلفية.
+  AdsService.init();
   runApp(const ThakiratAlbilatApp());
 }
 

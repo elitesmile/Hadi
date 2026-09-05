@@ -30,6 +30,11 @@
         <meta-data
             android:name="flutterEmbedding"
             android:value="2" />
+        <!-- معرّف تطبيق AdMob التجريبي الرسمي من جوجل. استبدله بمعرّف
+             تطبيقك الحقيقي من حساب AdMob قبل النشر — راجع docs/PUBLISHING_ADS.md -->
+        <meta-data
+            android:name="com.google.android.gms.ads.APPLICATION_ID"
+            android:value="ca-app-pub-3940256099942544~3347511713" />
     </application>
     <!-- Required to query activities that can process text, see:
          https://developer.android.com/training/package-visibility and
