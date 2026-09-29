@@ -848,7 +848,7 @@ function solve(A, B){ // A n×n, B n×2 → X n×2 (Gaussian elimination)
     const d=M[c][c]||1e-9; for(let r=0;r<n;r++){ if(r===c) continue; const f=M[r][c]/d; for(let k=c;k<n+2;k++) M[r][k]-=f*M[c][k]; } }
   return M.map((r,i)=>[r[n]/r[i], r[n+1]/r[i]]);
 }
-function warpImage(T, extra, chin){
+function warpImage(T, extra, chin, refine){
   const sc=Math.min(1, 1100/Math.max(imgW,imgH)), w=Math.round(imgW*sc), h=Math.round(imgH*sc);
   const src=document.createElement('canvas'); src.width=w; src.height=h; const sg=src.getContext('2d',{willReadFrequently:true}); sg.drawImage(img,0,0,w,h);
   const out=document.createElement('canvas'); out.width=w; out.height=h; const og=out.getContext('2d'); og.drawImage(src,0,0);
@@ -868,7 +868,7 @@ function warpImage(T, extra, chin){
   const ctrl=ORDER.map(k=>{ const x=T[k].x*sc, y=T[k].y*sc, w=chinW(x,y); return {x, y, r:RAD[k], dx:(T[k].x-pts[k].x)*sc - w*cd.x, dy:(T[k].y-pts[k].y)*sc - w*cd.y}; });
   (extra||[]).forEach(e=>{ const x=e.tx*sc, y=e.ty*sc, w=chinW(x,y); ctrl.push({x, y, r:0.11, dx:(e.tx-e.sx)*sc - w*cd.x, dy:(e.ty-e.sy)*sc - w*cd.y}); });
   const maxD=Math.max(...ctrl.map(c=>Math.hypot(c.dx,c.dy)));
-  if (maxD<0.5 && !hasChin) return {src, out};
+  if (maxD<0.5 && !hasChin && !refine) return {src, out};
   const nk=Math.hypot(pts.K.x-pts.N.x, pts.K.y-pts.N.y)*sc, sig=Math.max(6, nk*((extra&&extra.length)?0.2:0.3)), s2=2*sig*sig;
   // bounded blending (no overshoot): each control pulls with its own radius; weights are capped so the result never exceeds the requested moves
   const n=ctrl.length; ctrl.forEach(c=>{ const sgm=Math.max(5, nk*c.r); c.s2=2*sgm*sgm; });
@@ -877,9 +877,17 @@ function warpImage(T, extra, chin){
   if (!hasChin && moving.length){ x0=Math.max(0,Math.floor(Math.min(...moving.map(c=>c.x))-pad)); x1=Math.min(w-1,Math.ceil(Math.max(...moving.map(c=>c.x))+pad));
     y0=Math.max(0,Math.floor(Math.min(...moving.map(c=>c.y))-pad)); y1=Math.min(h-1,Math.ceil(Math.max(...moving.map(c=>c.y))+pad)); }
   const sd=sg.getImageData(0,0,w,h).data, od=og.getImageData(0,0,w,h), o=od.data;
+  // tip refinement: pinch the rounded lobule toward the nasal axis (K1 -> new K) so the tip reads defined, not bulbous
+  const tip = refine ? (()=>{ const Kx=T.K.x*sc, Ky=T.K.y*sc, bx=T.K.x-pts.K1.x, by=T.K.y-pts.K1.y, bl=Math.hypot(bx,by)||1;
+      const nkS=Math.hypot(T.K.x-pts.N.x,T.K.y-pts.N.y)*sc; return {x:Kx, y:Ky, tx:bx/bl, ty:by/bl, rho:Math.max(8,0.17*nkS), a:0.34}; })() : null;
+  if (tip){ x0=Math.max(0,Math.min(x0,Math.floor(tip.x-tip.rho*3))); x1=Math.min(w-1,Math.max(x1,Math.ceil(tip.x+tip.rho*3))); y0=Math.max(0,Math.min(y0,Math.floor(tip.y-tip.rho*3))); y1=Math.min(h-1,Math.max(y1,Math.ceil(tip.y+tip.rho*3))); }
   const edgeM=Math.max(24, 0.07*Math.min(w,h));
   for(let y=y0;y<=y1;y++){ for(let x=x0;x<=x1;x++){
-    const cw=chinW(x,y); let fx=cw*cd.x, fy=cw*cd.y; let sw=0, gx=0, gy=0; for(let i=0;i<n;i++){ const c=ctrl[i], g=Math.exp(-((x-c.x)**2+(y-c.y)**2)/c.s2); sw+=g; gx+=c.dx*g; gy+=c.dy*g; } const nm=Math.max(1,sw); fx+=gx/nm; fy+=gy/nm;
+    let qx=x, qy=y;
+    if (tip){ const vx=x-tip.x, vy=y-tip.y, u=vx*tip.tx+vy*tip.ty; if (u<0){ const wx=vx-u*tip.tx, wy=vy-u*tip.ty, r2=(vx*vx+vy*vy)/(tip.rho*tip.rho);
+        const k=1-tip.a*Math.exp(-r2)*Math.min(1,-u/(0.35*tip.rho)); qx=tip.x+u*tip.tx+wx/k; qy=tip.y+u*tip.ty+wy/k; } }
+    const cw=chinW(qx,qy); let fx=cw*cd.x, fy=cw*cd.y; let sw=0, gx=0, gy=0; for(let i=0;i<n;i++){ const c=ctrl[i], g=Math.exp(-((qx-c.x)**2+(qy-c.y)**2)/c.s2); sw+=g; gx+=c.dx*g; gy+=c.dy*g; } const nm=Math.max(1,sw); fx+=gx/nm; fy+=gy/nm;
+    fx+=x-qx; fy+=y-qy;
     if (Math.abs(fx)<0.02 && Math.abs(fy)<0.02) continue;
     { const bd=Math.min(x,y,w-1-x,h-1-y), q=Math.max(0,Math.min(1,bd/edgeM)), fb=q*q*(3-2*q); fx*=fb; fy*=fb; }
     if (Math.abs(fx)<0.02 && Math.abs(fy)<0.02) continue;
@@ -905,7 +913,7 @@ function simulate(){
   const pl = planTargets(); const {T, move, D, extra} = pl;
   if (D.tooBig){ $('simImg').removeAttribute('src'); $('simComp').innerHTML='<span class="chip c-bad">Not simulated</span>'; $('simRows').innerHTML='';
     $('simHead').textContent='Correction too large to simulate: check the landmarks'; return; }
-  const r = warpImage(T, extra, move.chin ? {dx:T.C.x-pts.C.x, dy:T.C.y-pts.C.y} : null), sc = r.sc || Math.min(1, 1100/Math.max(imgW,imgH));
+  const r = warpImage(T, extra, move.chin ? {dx:T.C.x-pts.C.x, dy:T.C.y-pts.C.y} : null, move.nose||move.dorsum), sc = r.sc || Math.min(1, 1100/Math.max(imgW,imgH));
   const w=r.src.width, h=r.src.height, gap=Math.round(w*0.03), band=Math.round(Math.max(34, w*0.07));
   const cv2=document.createElement('canvas'); cv2.width=w*2+gap; cv2.height=h+band; const g=cv2.getContext('2d');
   g.fillStyle='#1b2327'; g.fillRect(0,0,cv2.width,cv2.height);
@@ -918,6 +926,7 @@ function simulate(){
   // components + table
   const lbl=[]; const ch=(on,txt)=>lbl.push(`<span class="chip ${on?'c-bad':'c-ok'}">${txt}</span>`);
   ch(move.nose, move.nose ? (D.n>0?'Nose reduced':'Nose augmented') : 'Nose unchanged');
+  if (move.nose||move.dorsum) ch(true,'Tip refined');
   if (move.dorsum) ch(true, dors.main.kind==='hump'?'Dorsal hump reduced':'Dorsum augmented'); else ch(false,'Dorsum unchanged');
   ch(move.chin, move.chin ? (D.c>0?'Chin advanced':'Chin set back') : 'Chin unchanged');
   ch(move.U, move.U ? (D.u>0?'Upper lip retracted':'Upper lip advanced') : 'Upper lip unchanged');
