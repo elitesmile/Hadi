@@ -1,0 +1,1281 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Profile N–C">
+<meta name="theme-color" content="#0e7c74">
+<link rel="apple-touch-icon" href="icon-180.png">
+<link rel="icon" type="image/png" href="icon-192.png">
+<link rel="manifest" href="manifest.webmanifest">
+<style>:root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);color-scheme:light}body{margin:0;font:14px system-ui,-apple-system,sans-serif}img{max-width:100%}[hidden]{display:none!important}</style>
+</head>
+<body>
+<title>Angular Soft-Tissue Analyzer</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&family=Newsreader:opsz,wght@6..72,500;6..72,600&display=swap">
+<style>
+:root{
+  --bg:#eef2f2; --surface:#ffffff; --surface-2:#f6f8f8; --ink:#17212b; --muted:#5a6870; --line:#d6dee0;
+  --teal:#0e7c74; --teal-soft:#dcefed; --amber:#a86a12; --amber-soft:#f6ead6; --indigo:#4b4fa8; --indigo-soft:#e5e6f5;
+  --bad:#b23f2c; --bad-soft:#f7e2dd; --stage:#1b2327; --stage-ink:#c9d3d6;
+  --display:"Newsreader", Georgia, "Times New Roman", serif;
+  --sans:"IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --mono:"IBM Plex Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    color-scheme:dark;
+    --bg:#10161a; --surface:#172026; --surface-2:#1c262c; --ink:#e4ebed; --muted:#93a2a9; --line:#2b373d;
+    --teal:#48b5aa; --teal-soft:#16332f; --amber:#e0a64c; --amber-soft:#3a2d17; --indigo:#9296ea; --indigo-soft:#262845;
+    --bad:#ec8471; --bad-soft:#3d211c; --stage:#0a0e10; --stage-ink:#9fb0b6;
+  }
+}
+:root[data-theme="dark"]{
+  color-scheme:dark;
+  --bg:#10161a; --surface:#172026; --surface-2:#1c262c; --ink:#e4ebed; --muted:#93a2a9; --line:#2b373d;
+  --teal:#48b5aa; --teal-soft:#16332f; --amber:#e0a64c; --amber-soft:#3a2d17; --indigo:#9296ea; --indigo-soft:#262845;
+  --bad:#ec8471; --bad-soft:#3d211c; --stage:#0a0e10; --stage-ink:#9fb0b6;
+}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font-family:var(--sans);font-size:14px;line-height:1.5}
+.wrap{max-width:1360px;margin:0 auto;padding-inline:16px;padding-block:14px 40px}
+header.top{display:flex;flex-wrap:wrap;align-items:baseline;justify-content:space-between;gap:6px 20px;padding-block:6px 14px;border-bottom:1px solid var(--line);margin-bottom:14px}
+.brand{display:flex;align-items:baseline;gap:12px;flex-wrap:wrap}
+.brand h1{font-family:var(--display);font-weight:600;font-size:26px;letter-spacing:-.01em;margin:0;text-wrap:balance}
+.brand .by{color:var(--muted);font-size:13px}
+.ref{font-size:12px;color:var(--muted)}
+.ref a{color:var(--teal)}
+.layout{display:grid;grid-template-columns:minmax(0,1.2fr) minmax(0,1fr);gap:18px;align-items:start}
+@media (max-width:960px){.layout{grid-template-columns:minmax(0,1fr)}}
+.stagecol{position:sticky;top:calc(env(safe-area-inset-top,0px) + 10px);display:flex;flex-direction:column;gap:10px}
+@media (max-width:960px){.stagecol{position:static}}
+.toolbar{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+button,.btn{font:inherit;font-weight:500;font-size:13px;border:1px solid var(--line);background:var(--surface);color:var(--ink);border-radius:8px;padding:7px 12px;cursor:pointer;display:inline-flex;align-items:center;gap:6px;line-height:1.2}
+button:hover,.btn:hover{border-color:var(--teal)}
+button:focus-visible,.btn:focus-within,input:focus-visible,canvas:focus-visible{outline:2px solid var(--teal);outline-offset:2px}
+button.primary-soft{border-color:var(--teal);color:var(--teal);font-weight:600}
+button.primary-soft[aria-pressed="true"]{background:var(--teal);color:#fff}
+button.primary,.btn.primary{background:var(--teal);border-color:var(--teal);color:#fff}
+button[aria-pressed="true"]{background:var(--teal-soft);border-color:var(--teal);color:var(--ink)}
+.btn input{position:absolute;width:1px;height:1px;opacity:0;pointer-events:none}
+.seg{display:inline-flex;border:1px solid var(--line);border-radius:8px;overflow:hidden}
+.seg button{border:0;border-radius:0;padding:7px 10px}
+.seg button+button{border-left:1px solid var(--line)}
+.stage{background:var(--stage);border-radius:12px;padding:10px;display:flex;justify-content:center;align-items:center;min-height:260px;position:relative}
+.zoombar{position:absolute;right:16px;bottom:16px;display:flex;gap:4px;z-index:2}
+.zoombar button{background:rgba(255,255,255,.92);color:#17212b;border-color:rgba(0,0,0,.15);min-width:36px;justify-content:center;padding:6px 10px;font-size:15px}
+.stage.drag{outline:2px dashed var(--teal);outline-offset:-6px}
+canvas#view{display:block;touch-action:none;border-radius:6px;cursor:crosshair;max-width:100%}
+.status{font-size:13px;color:var(--muted);display:flex;gap:8px;align-items:flex-start;min-height:22px}
+.status .dot{width:8px;height:8px;border-radius:50%;background:var(--teal);margin-top:6px;flex:none}
+.status.warn .dot{background:var(--amber)}
+.status.err .dot{background:var(--bad)}
+.legend{display:flex;flex-wrap:wrap;gap:6px 14px;font-size:12px;color:var(--muted)}
+.legend span{display:inline-flex;align-items:center;gap:6px}
+.sw{width:10px;height:10px;border-radius:50%;display:inline-block}
+.panel{display:flex;flex-direction:column;gap:14px}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:16px}
+.eyebrow{font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);font-weight:600;margin:0 0 6px}
+.verdict h2{font-family:var(--display);font-weight:600;font-size:25px;line-height:1.2;margin:0 0 6px;text-wrap:balance}
+.verdict p{margin:0;color:var(--muted);max-width:62ch}
+.verdict.ok h2{color:var(--teal)}
+.verdict.dev h2{color:var(--bad)}
+.tx{margin-top:12px;display:flex;flex-direction:column;gap:8px}
+.tx div{display:flex;gap:10px;align-items:flex-start;background:var(--surface-2);border:1px solid var(--line);border-radius:8px;padding:9px 11px}
+.tx b{font-weight:600}
+.tx .tag{flex:none;font-size:11px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;border-radius:5px;padding:2px 7px;margin-top:1px}
+.steps{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin-top:14px}
+@media (max-width:520px){.steps{grid-template-columns:minmax(0,1fr)}}
+.step{border:1px solid var(--line);border-radius:8px;padding:9px 10px;background:var(--surface-2)}
+.step .k{font-size:11px;color:var(--muted);font-weight:600;letter-spacing:.05em;text-transform:uppercase}
+.step .v{font-weight:600;margin-top:2px}
+.chip{display:inline-block;font-size:12px;font-weight:600;border-radius:999px;padding:2px 9px;white-space:nowrap}
+.c-ok{background:var(--teal-soft);color:var(--teal)}
+.c-mild{background:var(--amber-soft);color:var(--amber)}
+.c-bad{background:var(--bad-soft);color:var(--bad)}
+.c-est{background:var(--surface-2);color:var(--muted);border:1px dashed var(--line)}
+.c-com{background:var(--indigo-soft);color:var(--indigo)}
+.mapwrap{overflow-x:auto}
+svg#map{display:block;width:100%;min-width:460px;height:auto}
+.tablewrap{overflow-x:auto}
+table{width:100%;border-collapse:collapse;font-size:13px}
+th{font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);text-align:left;font-weight:600;padding:6px 8px;border-bottom:1px solid var(--line)}
+td{padding:7px 8px;border-bottom:1px solid var(--line);vertical-align:middle}
+tr:last-child td{border-bottom:0}
+@media (max-width:560px){.desc{display:none}}
+td.num,th.num{text-align:right;font-family:var(--mono);font-variant-numeric:tabular-nums;white-space:nowrap}
+td.ang{font-family:var(--mono);font-weight:500;white-space:nowrap}
+.grp td{background:var(--surface-2);font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);font-weight:600;padding:5px 8px}
+.row2{display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:space-between}
+.tol{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--muted)}
+.tol input{accent-color:var(--teal);width:120px}
+.tol output{font-family:var(--mono);color:var(--ink);min-width:3.2em}
+.field{display:flex;flex-direction:column;gap:4px;font-size:12px;color:var(--muted);flex:1 1 160px}
+.field input{font:inherit;font-size:14px;color:var(--ink);background:var(--surface-2);border:1px solid var(--line);border-radius:8px;padding:7px 10px}
+.study{display:flex;flex-direction:column;gap:10px}
+.study .actions{display:flex;flex-wrap:wrap;gap:8px;align-items:flex-end}
+textarea#csv{width:100%;min-height:90px;font-family:var(--mono);font-size:11px;color:var(--ink);background:var(--surface-2);border:1px solid var(--line);border-radius:8px;padding:8px}
+.muted{color:var(--muted)}
+.small{font-size:12px}
+.note{font-size:12px;color:var(--muted);max-width:70ch}
+.hint{font-size:12px;color:var(--muted)}
+.placebar{display:flex;gap:6px;flex-wrap:wrap;align-items:center;font-size:13px}
+.placebar .chip{font-family:var(--mono)}
+.sim{margin-top:18px;display:flex;flex-direction:column;gap:12px}
+.sim .head{display:flex;flex-wrap:wrap;gap:10px 18px;align-items:center;justify-content:space-between}
+.sim h2{font-family:var(--display);font-weight:600;font-size:22px;margin:0}
+.sim .ctrl{display:flex;flex-wrap:wrap;gap:8px 14px;align-items:center}
+.chk{display:inline-flex;align-items:center;gap:6px;font-size:13px;cursor:pointer}
+.chk input{accent-color:var(--teal);width:16px;height:16px}
+.simgrid{display:grid;grid-template-columns:minmax(0,1.6fr) minmax(0,1fr);gap:16px;align-items:start}
+@media (max-width:900px){.simgrid{grid-template-columns:minmax(0,1fr)}}
+.simimg{background:var(--stage);border-radius:12px;padding:8px}
+.simimg img{display:block;width:100%;height:auto;border-radius:6px;-webkit-touch-callout:default}
+.comp{display:flex;flex-wrap:wrap;gap:6px}
+@media (prefers-reduced-motion:no-preference){.verdict h2{transition:color .2s}}
+</style>
+
+<div class="wrap">
+  <header class="top">
+    <div class="brand">
+      <h1>Angular Soft-Tissue Analyzer</h1>
+      <span class="by">N–C axis method · Al-Shehri 2026</span>
+    </div>
+    <div class="ref">Method: <a href="https://doi.org/10.5281/zenodo.23005730" target="_blank" rel="noopener">doi.org/10.5281/zenodo.23005730</a> · Photos stay on this device</div>
+  </header>
+
+  <div class="layout">
+    <section class="stagecol" aria-label="Photograph and landmarks">
+      <div class="toolbar">
+        <label class="btn primary" for="file">Upload profile photo<input id="file" type="file" accept="image/*"></label>
+        <div class="seg" role="group" aria-label="Face direction" hidden>
+          <button id="faceL" type="button" aria-pressed="false">Faces left</button>
+          <button id="faceR" type="button" aria-pressed="true">Faces right</button>
+        </div>
+        <button id="guided" type="button" aria-pressed="false" class="primary-soft">Tap N + C</button>
+        <button id="redetect" type="button" hidden>Auto-detect</button>
+        <button id="manual" type="button" aria-pressed="false" hidden>Place points</button>
+        <button id="sample" type="button" hidden>Sample</button>
+        <button id="pdfBtn" type="button" class="primary-soft" hidden>Export PDF</button>
+      </div>
+      <div class="stage" id="stage">
+        <div class="zoombar" role="group" aria-label="Photo zoom"><button id="zOut" type="button" aria-label="Zoom out">−</button><button id="zIn" type="button" aria-label="Zoom in">+</button><button id="zFit" type="button">Fit</button></div>
+        <canvas id="view" tabindex="0" aria-label="Profile photograph with landmarks. Drag a landmark to move it; arrow keys nudge the selected landmark."></canvas>
+      </div>
+      <div class="status" id="status" role="status"><span class="dot"></span><span id="statusText">Loading…</span></div>
+      <div class="placebar" id="placebar" hidden></div>
+      <div class="legend">
+        <span><i class="sw" style="background:#17212b;box-shadow:0 0 0 2px #fff inset"></i>N, C · axis</span>
+        <span><i class="sw" style="background:#0e7c74"></i>K, U, L · modifiable</span>
+        <span><i class="sw" style="background:#c98a1e"></i>K1, U1 · embedded</span>
+        <span><i class="sw" style="border:2px dashed #c98a1e"></i>estimate, check it</span>
+        <span>Pinch or +/− to zoom the photo · drag empty space to move it</span>
+      </div>
+    </section>
+
+    <section class="panel" aria-label="Results">
+      <div class="card verdict" id="verdict">
+        <p class="eyebrow">Diagnosis · diagnostic key</p>
+        <h2 id="vHead">—</h2>
+        <p id="vWhy"></p>
+        <div class="tx" id="vTx"></div>
+        <div class="steps" id="vSteps"></div>
+      </div>
+
+      <div class="card">
+        <div class="row2">
+          <p class="eyebrow" style="margin:0">Angular map from N–C (C = 0°, anterior +)</p>
+          <div class="tol"><label for="tol">Tolerance</label><input id="tol" type="range" min="1" max="4" step="0.5" value="2"><output id="tolOut" for="tol">±2.0°</output></div>
+        </div>
+        <div class="mapwrap"><svg id="map" viewBox="0 0 560 168" role="img" aria-label="Measured and ideal landmark angles on one scale"></svg></div>
+      </div>
+
+      <div class="card">
+        <p class="eyebrow">Angles · measured vs proposed ideal</p>
+        <div class="tablewrap">
+          <table>
+            <thead><tr><th>Angle</th><th class="desc">Describes</th><th class="num">Measured</th><th class="num">Ideal</th><th class="num">Δ</th><th>Status</th></tr></thead>
+            <tbody id="tbody"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="card study">
+        <p class="eyebrow">Study record</p>
+        <div class="actions">
+          <div class="field"><label for="caseId">Case ID (also used for the PDF)</label><input id="caseId" type="text" placeholder="e.g. P-014 or rater A, trial 1" autocomplete="off"></div>
+          <button id="addRow" type="button" class="primary">Add to record</button>
+          <button id="copyCsv" type="button">Copy CSV</button>
+          <button id="clearRows" type="button">Clear</button>
+        </div>
+        <div id="clearConfirm" class="hint" hidden>Delete all <span id="rowCount2">0</span> rows? <button id="clearYes" type="button">Delete</button> <button id="clearNo" type="button">Keep</button></div>
+        <div class="tablewrap">
+          <table>
+            <thead><tr><th>Case</th><th class="num">C–N–K</th><th class="num">U–N–C</th><th class="num">L–N–C</th><th>Finding</th></tr></thead>
+            <tbody id="rows"></tbody>
+          </table>
+        </div>
+        <textarea id="csv" readonly aria-label="CSV of recorded cases"></textarea>
+        <p class="note">Rows stay in this browser only. Copy the CSV into Excel or SPSS for reliability (ICC) and normative analysis. It includes every angle and the landmark coordinates.</p>
+      </div>
+
+      <p class="note">Ideal values are the proposed norms from the preprint and still need validation. This tool supports research and planning; confirm every finding with clinical examination. Photograph in natural head position, lips relaxed, teeth in centric occlusion, against a plain background.</p>
+    </section>
+  </div>
+
+  <section class="card sim" aria-label="Before and after simulation">
+    <div class="head">
+      <div>
+        <p class="eyebrow">Before and after · simulation</p>
+        <h2 id="simHead">Profile after correction to the ideal angles</h2>
+      </div>
+      <div class="ctrl">
+        <div class="seg" role="group" aria-label="What to correct">
+          <button id="modePlan" type="button" aria-pressed="true">Treatment plan</button>
+          <button id="modeAll" type="button" aria-pressed="false">All to ideal</button>
+        </div>
+        <label class="chk" for="simMarks"><input id="simMarks" type="checkbox" checked> Show landmarks</label>
+      </div>
+    </div>
+    <div class="simgrid">
+      <div class="simimg"><img id="simImg" alt="Original profile on the left and the simulated corrected profile on the right"></div>
+      <div class="panel">
+        <div>
+          <p class="eyebrow">Components moved</p>
+          <div class="comp" id="simComp"></div>
+        </div>
+        <div class="tablewrap">
+          <table>
+            <thead><tr><th>Angle</th><th class="num">Before</th><th class="num">After</th><th class="num">Ideal</th></tr></thead>
+            <tbody id="simRows"></tbody>
+          </table>
+        </div>
+        <p class="note">The photo is warped locally so each corrected landmark sits exactly on its ideal angle; the surrounding soft tissue follows smoothly and everything else stays fixed. This is a visual aid for planning and patient discussion, not a prediction of the surgical or orthodontic result. Press and hold the image (or right-click it) to save it.</p>
+      </div>
+    </div>
+  </section>
+</div>
+
+<script src="jspdf.umd.min.js"></script>
+<script>
+(() => {
+'use strict';
+// ---------- constants from the paper ----------
+const IDEAL = {K:30, U:8, L:4, K1:-10, U1:-10};
+const ORDER = ['N','K','K1','U','U1','L','C'];
+const NAMES = {N:'Soft-tissue nasion',K:'Pronasale (nose tip)',K1:'Posterior nasal point (alar base)',U:'Upper lip',U1:'Posterior lip point (commissure)',L:'Lower lip',C:'Soft-tissue pogonion'};
+const COL = {N:'#17212b',C:'#17212b',K:'#0e7c74',U:'#0e7c74',L:'#0e7c74',K1:'#c98a1e',U1:'#c98a1e'};
+
+// ---------- state ----------
+let img = null, imgW = 0, imgH = 0, isSample = true;
+let facing = 1; // +1 faces right, -1 faces left
+let pts = null;  // {N:{x,y,est}, ...} in image px
+let found = {};  // which were detected vs fallback
+let tol = 2;
+let sel = null, dragging = null, placing = null, loupeAt = null;
+const $ = id => document.getElementById(id);
+const cv = $('view'), ctx = cv.getContext('2d');
+let dispK = 1, dpr = 1;
+let enhInfo=null, enhPending=null;
+let vz=1, vx=0, vy=0; // in-canvas zoom and pan (css px)
+
+// ---------- sample illustration ----------
+function makeSample(){
+  const W = 960, H = 1120, S = 5.2, Ox = 560, Oy = 360;
+  const c = document.createElement('canvas'); c.width = W; c.height = H;
+  const g = c.getContext('2d');
+  const P = (t,d) => [d*Math.sin(t*Math.PI/180), d*Math.cos(t*Math.PI/180)];
+  const X = p => [Ox + p[0]*S, Oy + p[1]*S];
+  const bg = g.createLinearGradient(0,0,0,H); bg.addColorStop(0,'#d3dde1'); bg.addColorStop(1,'#e8eef0');
+  g.fillStyle = bg; g.fillRect(0,0,W,H);
+  const K = P(38,62), U = P(8,80), L = P(4,97), C = [0,120], Sn = [12.5,62];
+  const face = new Path2D();
+  const m = p => { const q = X(p); face.moveTo(q[0],q[1]); };
+  const cb = (a,b,e) => { const A=X(a),B=X(b),E=X(e); face.bezierCurveTo(A[0],A[1],B[0],B[1],E[0],E[1]); };
+  const ln = p => { const q=X(p); face.lineTo(q[0],q[1]); };
+  m([-150,-40]);
+  cb([-120,-95],[-40,-100],[-8,-70]);
+  cb([3,-55],[7,-30],[5,-14]);
+  cb([6,-8],[6,-3],[0,0]);
+  cb([K[0]*.3+4.5,K[1]*.3-1.5],[K[0]*.72+4,K[1]*.7-2.5],K);
+  cb([K[0]+2.5,K[1]+3],[K[0]+.5,K[1]+7],[K[0]-3,K[1]+7.5]);
+  cb([(K[0]-3+Sn[0])/2+1,K[1]+9],[Sn[0]+2,Sn[1]-2],Sn);
+  cb([9,66],[8,72],[9.5,75]);
+  cb([10.5,76.5],[11.4,78],U);
+  cb([11.8,83],[9,85.5],[4.5,87]);
+  cb([8,89],[8.2,94],L);
+  cb([6.5,101],[1,104],[-3.5,106]);
+  cb([-1.5,111],[.3,115],C);
+  cb([-1.5,127],[-6,131],[-14,132]);
+  cb([-24,134],[-26,150],[-24,175]);
+  ln([-110,175]); cb([-110,120],[-150,80],[-150,-40]);
+  face.closePath();
+  const sk = g.createLinearGradient(Ox-80*S,0,Ox+40*S,0); sk.addColorStop(0,'#b98a6c'); sk.addColorStop(1,'#d9ae8e');
+  g.fillStyle = sk; g.fill(face);
+  // hair
+  const hair = new Path2D(); const hm=(p)=>{const q=X(p);hair.moveTo(q[0],q[1]);}; const hc=(a,b,e)=>{const A=X(a),B=X(b),E=X(e);hair.bezierCurveTo(A[0],A[1],B[0],B[1],E[0],E[1]);};
+  hm([-152,-40]); hc([-122,-98],[-40,-104],[-6,-72]); hc([-18,-60],[-40,-52],[-62,-46]); hc([-90,-40],[-100,-10],[-104,25]); hc([-120,20],[-140,0],[-152,-40]);
+  g.fillStyle = '#2b2320'; g.fill(hair);
+  // ear
+  g.save(); const e = X([-66,30]); g.translate(e[0],e[1]); g.beginPath(); g.ellipse(0,0,9*S,16*S,.15,0,Math.PI*2); g.fillStyle='#c19274'; g.fill(); g.strokeStyle='#9a6d53'; g.lineWidth=3; g.stroke(); g.restore();
+  // brow, eye
+  g.strokeStyle='#3b2e28'; g.lineWidth=5; g.lineCap='round'; g.beginPath(); let a=X([-26,-4]), b=X([-6,-6]); g.moveTo(a[0],a[1]); g.quadraticCurveTo((a[0]+b[0])/2, a[1]-14, b[0], b[1]); g.stroke();
+  g.fillStyle='#2e2622'; g.beginPath(); const ey=X([-12,9]); g.ellipse(ey[0],ey[1],3.2*S,1.6*S,0,0,Math.PI*2); g.fill();
+  // nostril
+  g.strokeStyle='#8e634b'; g.lineWidth=3; g.beginPath(); const al=X([K[0]*.6,K[1]+5.5]); g.ellipse(al[0],al[1],Math.max(4,(K[0]-6)*.3)*S,3.6*S,0,0,Math.PI*2); g.stroke();
+  // lips tint
+  g.save(); g.clip(face); g.strokeStyle='rgba(150,70,60,.55)'; g.lineWidth=10; g.beginPath(); let q=X([10,76]); g.moveTo(q[0],q[1]); [[11,80],[9.5,85]].forEach(p=>{const r=X(p); g.lineTo(r[0],r[1]);}); g.stroke(); g.beginPath(); q=X([7,90]); g.moveTo(q[0],q[1]); [[6.7,97],[4.5,101]].forEach(p=>{const r=X(p); g.lineTo(r[0],r[1]);}); g.stroke(); g.restore();
+  // shirt
+  g.fillStyle='#35545a'; g.beginPath(); let s0=X([-175,215]); g.moveTo(s0[0],s0[1]); [[-120,168],[-40,172],[-16,178],[10,196],[22,215]].forEach(p=>{const r=X(p); g.lineTo(r[0],r[1]);}); g.lineTo(X([22,215])[0],H); g.lineTo(0,H); g.closePath(); g.fill();
+  return c.toDataURL('image/png');
+}
+
+// ---------- image analysis ----------
+function gaussSmooth(a, sigma){
+  const n = a.length, out = new Float64Array(n);
+  const r = Math.max(1, Math.ceil(sigma*3)); const w = [];
+  for (let i=-r;i<=r;i++) w.push(Math.exp(-(i*i)/(2*sigma*sigma)));
+  for (let i=0;i<n;i++){ let s=0, ws=0; for (let k=-r;k<=r;k++){ const j=i+k; if (j<0||j>=n||isNaN(a[j])) continue; s+=a[j]*w[k+r]; ws+=w[k+r]; } out[i] = ws>0 ? s/ws : NaN; }
+  return out;
+}
+function fillGaps(a){
+  const n=a.length, out=Float64Array.from(a); let last=-1;
+  for (let i=0;i<n;i++){ if (!isNaN(out[i])){ if (last>=0 && i-last>1){ for(let j=last+1;j<i;j++) out[j]=out[last]+(out[i]-out[last])*(j-last)/(i-last);} last=i; } }
+  return out;
+}
+function median(arr){ const s=arr.slice().sort((a,b)=>a-b); return s.length? s[s.length>>1] : 0; }
+
+function scanSide(R,G,B,w,h,side){ // side +1: face toward right border
+  const m = Math.max(6, Math.round(w*0.02));
+  const br=new Float64Array(h), bgc=new Float64Array(h), bb=new Float64Array(h);
+  for (let y=0;y<h;y++){ const r=[],g=[],b=[]; for (let i=0;i<m;i++){ const x = side>0? w-1-i : i; const k=y*w+x; r.push(R[k]); g.push(G[k]); b.push(B[k]); } br[y]=median(r); bgc[y]=median(g); bb[y]=median(b); }
+  const sm = (arr)=>{ const o=new Float64Array(h); for(let y=0;y<h;y++){ const v=[]; for(let k=-6;k<=6;k++){const j=y+k; if(j>=0&&j<h) v.push(arr[j]);} o[y]=median(v);} return o; };
+  const R0=sm(br), G0=sm(bgc), B0=sm(bb);
+  const dist=(k,y)=>{ const dr=R[k]-R0[y], dg=G[k]-G0[y], db=B[k]-B0[y]; return Math.sqrt(dr*dr+dg*dg+db*db); };
+  const nz=[]; for (let y=0;y<h;y+=2){ for (let i=0;i<m;i++){ const x = side>0? w-1-i : i; nz.push(dist(y*w+x,y)); } }
+  const noise = median(nz);
+  const T = Math.max(26, noise*5 + 14);
+  const a = new Float64Array(h).fill(NaN);
+  for (let y=0;y<h;y++){
+    let run=0;
+    for (let i=0;i<w;i++){
+      const x = side>0? w-1-i : i;
+      if (dist(y*w+x,y) > T){ run++; if (run>=3){ const idx=i-2; if (idx>m) a[y]=w-1-idx; break; } } else run=0;
+    }
+  }
+  return a;
+}
+function zigzag(a, y0, yEnd, hys, seq){ // seq: ['min','max',...]; walks from y0 toward yEnd
+  const dir = yEnd>y0 ? 1 : -1, out=[]; let s=0, bestV = a[y0], bestY = y0;
+  for (let y=y0+dir; dir>0 ? y<=yEnd : y>=yEnd; y+=dir){
+    const v=a[y]; if (isNaN(v)) continue;
+    if (seq[s]==='min'){
+      if (v<bestV){bestV=v;bestY=y;} else if (v>bestV+hys){ out.push(bestY); s++; if(s>=seq.length) break; bestV=v; bestY=y; }
+    } else {
+      if (v>bestV){bestV=v;bestY=y;} else if (v<bestV-hys){ out.push(bestY); s++; if(s>=seq.length) break; bestV=v; bestY=y; }
+    }
+  }
+  return out;
+}
+function analyzeSide(R,G,B,w,h,side){
+  const raw = scanSide(R,G,B,w,h,side);
+  const valid = raw.reduce((n,v)=>n+(isNaN(v)?0:1),0);
+  if (valid < h*0.3) return null;
+  const a1 = gaussSmooth(fillGaps(raw), Math.max(1.5,h*0.004));
+  let K=-1, kv=-Infinity;
+  for (let y=Math.round(h*0.08); y<h*0.92; y++){ if(!isNaN(a1[y]) && a1[y]>kv){kv=a1[y];K=y;} }
+  if (K<0) return null;
+  const up = zigzag(a1, K, 0, Math.max(4,h*0.015), ['min']);
+  if (!up.length) return null;
+  let N = up[0];
+  const S = Math.hypot(a1[K]-a1[N], K-N);
+  const a2 = gaussSmooth(fillGaps(raw), Math.max(1,S*0.012));
+  const refine=(y,rng,fn)=>{ let by=y, bv=a2[y]; for(let j=Math.max(0,y-rng); j<=Math.min(h-1,y+rng); j++){ if(!isNaN(a2[j]) && fn(a2[j],bv)){bv=a2[j];by=j;} } return by; };
+  K = refine(K, Math.round(S*0.12), (v,b)=>v>b);
+  N = refine(N, Math.round(S*0.12), (v,b)=>v<b);
+  const yEnd = Math.min(h-1, Math.round(N + 3.2*S));
+  const dn = zigzag(a2, K, yEnd, Math.max(1.2, S*0.028), ['min','max','min','max','min','max']);
+  const res = {side, a:a2, S, ys:{N,K}};
+  const keys = ['Sn','U','St','L','LM','C'];
+  dn.forEach((y,i)=>res.ys[keys[i]]=y);
+  const prom = Math.min(a2[K]-a2[N], res.ys.Sn!=null ? a2[K]-a2[res.ys.Sn] : 0);
+  res.count = dn.length; res.score = res.count*1000 + prom/S*100;
+  return res;
+}
+function detect(image, pref){
+  const iw=image.naturalWidth, ih=image.naturalHeight, sc=Math.min(1, 1000/Math.max(iw,ih));
+  const w=Math.max(40,Math.round(iw*sc)), h=Math.max(40,Math.round(ih*sc));
+  const c=document.createElement('canvas'); c.width=w; c.height=h; const g=c.getContext('2d',{willReadFrequently:true});
+  g.drawImage(image,0,0,w,h);
+  const d=g.getImageData(0,0,w,h).data;
+  // box blur 5x5 per channel
+  const ch = off => { const o=new Float32Array(w*h); for(let i=0;i<w*h;i++) o[i]=d[i*4+off]; return o; };
+  const blur = src => { const t=new Float32Array(w*h), o=new Float32Array(w*h), r=2;
+    for(let y=0;y<h;y++){ for(let x=0;x<w;x++){ let s=0,n=0; for(let k=-r;k<=r;k++){const xx=x+k; if(xx>=0&&xx<w){s+=src[y*w+xx];n++;}} t[y*w+x]=s/n; } }
+    for(let y=0;y<h;y++){ for(let x=0;x<w;x++){ let s=0,n=0; for(let k=-r;k<=r;k++){const yy=y+k; if(yy>=0&&yy<h){s+=t[yy*w+x];n++;}} o[y*w+x]=s/n; } } return o; };
+  const borderColor = side => { const r=[],gg=[],bb=[]; for(let y=0;y<h;y+=2){ for(let i=0;i<4;i++){ const x=side>0?w-1-i:i, k=(y*w+x)*4; r.push(d[k]); gg.push(d[k+1]); bb.push(d[k+2]); } } return `rgb(${median(r)},${median(gg)},${median(bb)})`; };
+  const cx=w/2, cy=h/2;
+  let res=null, rot=0;
+  const sides = pref ? [pref] : [1,-1];
+  for (const ang of [0,-7,7,-14,14]){
+    for (const side of sides){
+      let R,G,B;
+      if (ang===0){ R=blur(ch(0)); G=blur(ch(1)); B=blur(ch(2)); }
+      else {
+        const c2=document.createElement('canvas'); c2.width=w; c2.height=h; const g2=c2.getContext('2d',{willReadFrequently:true});
+        g2.fillStyle=borderColor(side); g2.fillRect(0,0,w,h);
+        g2.translate(cx,cy); g2.rotate(ang*Math.PI/180); g2.translate(-cx,-cy); g2.drawImage(image,0,0,w,h);
+        const d2=g2.getImageData(0,0,w,h).data; const c = off => { const o=new Float32Array(w*h); for(let i=0;i<w*h;i++) o[i]=d2[i*4+off]; return o; };
+        R=blur(c(0)); G=blur(c(1)); B=blur(c(2));
+      }
+      const r=analyzeSide(R,G,B,w,h,side);
+      if (r){ r.score -= Math.abs(ang)*2; if(!res || r.score>res.score){ res=r; rot=ang; } }
+    }
+    if (res && res.count>=6) break;
+  }
+  if (!res) return null;
+  const side=res.side, a=res.a, S=res.S, ys=res.ys;
+  const ca=Math.cos(-rot*Math.PI/180), sa=Math.sin(-rot*Math.PI/180);
+  const toImg = (av,y) => { const xs=(side>0 ? av : (w-1-av)) - cx, yy=y-cy; return { x:(ca*xs - sa*yy + cx)/sc, y:(sa*xs + ca*yy + cy)/sc }; };
+  const out = {}, got = {};
+  ['N','K','U','L','C'].forEach(k=>{ if (ys[k]!=null){ out[k]=toImg(a[ys[k]],ys[k]); got[k]=true; } });
+  // fallbacks for missing lower landmarks (proportional to N–K), flagged as estimates
+  const N=out.N, K=out.K, nk=Math.hypot(K.x-N.x,K.y-N.y);
+  const place = (ang,dist) => { const t=ang*Math.PI/180; return {x:N.x + side*Math.sin(t)*dist, y:N.y + Math.cos(t)*dist}; };
+  if (!out.C) out.C = place(0, nk*2.1);
+  if (!out.U) out.U = place(8, nk*1.42);
+  if (!out.L) out.L = place(4, nk*1.73);
+  // embedded points: estimated from profile geometry
+  const snY = ys.Sn!=null ? ys.Sn : (ys.K + 0.25*S);
+  const stY = ys.St!=null ? ys.St : Math.round((ys.U!=null&&ys.L!=null)?(ys.U+ys.L)/2:(ys.K+0.7*S));
+  const kA = a[ys.K], snA = ys.Sn!=null ? a[ys.Sn] : kA - 0.3*S, stA = ys.St!=null ? a[ys.St] : kA - 0.45*S;
+  const k1y = snY - 0.25*(snY-ys.K);
+  out.K1 = toImg(kA - 0.6*S, k1y);
+  out.U1 = toImg(stA - 0.35*S, stY);
+  return {pts: out, got, side};
+}
+
+// ---------- guided detection: user gives N and C; edge found along the N–C axis ----------
+function prepImage(image, maxDim){
+  const iw=image.naturalWidth, ih=image.naturalHeight, sc=Math.min(1, maxDim/Math.max(iw,ih));
+  const w=Math.max(40,Math.round(iw*sc)), h=Math.max(40,Math.round(ih*sc));
+  const c=document.createElement('canvas'); c.width=w; c.height=h; const g=c.getContext('2d',{willReadFrequently:true});
+  g.drawImage(image,0,0,w,h); const d=g.getImageData(0,0,w,h).data;
+  const blur = off => { const src=new Float32Array(w*h); for(let i=0;i<w*h;i++) src[i]=d[i*4+off];
+    const t=new Float32Array(w*h), o=new Float32Array(w*h), r=1;
+    for(let y=0;y<h;y++) for(let x=0;x<w;x++){ let s=0,n=0; for(let k=-r;k<=r;k++){const xx=x+k; if(xx>=0&&xx<w){s+=src[y*w+xx];n++;}} t[y*w+x]=s/n; }
+    for(let y=0;y<h;y++) for(let x=0;x<w;x++){ let s=0,n=0; for(let k=-r;k<=r;k++){const yy=y+k; if(yy>=0&&yy<h){s+=t[yy*w+x];n++;}} o[y*w+x]=s/n; }
+    return o; };
+  return {w,h,sc,R:blur(0),G:blur(1),B:blur(2)};
+}
+function traceEdge(im, N, C, side, o){
+  const {w,h,R,G,B}=im; const ax=C.x-N.x, ay=C.y-N.y, L=Math.hypot(ax,ay); if (L<(o.minL||30)) return null;
+  const a={x:ax/L,y:ay/L}, b={x:side*a.y, y:-side*a.x};
+  const dMin=Math.round(o.dMin*L), dMax=Math.round(o.dMax*L), nd=dMax-dMin+1;
+  const nL=Math.round(L)+1;               // lines t = 0..L (N to C)
+  const px=(x,y)=>{ const xi=Math.round(x), yi=Math.round(y); if(xi<0||yi<0||xi>=w||yi>=h) return null; const k=yi*w+xi; return [R[k],G[k],B[k]]; };
+  const at=(t,d)=>px(N.x+a.x*t+b.x*d, N.y+a.y*t+b.y*d);
+  // skin reference: just inside the face at N and at C, and along the axis interior
+  const sk=[]; for(let t=o.t0*L;t<=o.t1*L;t+=Math.max(1,L/40)){ for(let d=o.s0*L; d<=o.s1*L; d+=Math.max(1,L/120)){ const c=at(t,d); if(c) sk.push(c); } }
+  if (sk.length<10) return null;
+  const skin=[0,1,2].map(j=>median(sk.map(c=>c[j])));
+  const skd=sk.map(c=>Math.hypot(c[0]-skin[0],c[1]-skin[1],c[2]-skin[2]));
+  // face colour model in chromaticity (tolerant to lighting): skin-like hue, and at least as red as skin minus a margin (lips pass, grey/white/blue/beige walls fail)
+  const chroma=c=>{ const sm=c[0]+c[1]+c[2]+1e-3; return [c[0]/sm, c[1]/sm, sm]; };
+  const skc=sk.map(chroma), sr=median(skc.map(c=>c[0])), sg=median(skc.map(c=>c[1])), sb=median(skc.map(c=>c[2]));
+  const sRd=sr-sg, cs=Math.max(0.035, median(skc.map(c=>Math.hypot(c[0]-sr,c[1]-sg)))*3);
+  const face=c=>{ const q=chroma(c); if (q[2]<0.22*sb || q[2]>2.6*sb+60) return 0;
+    const rd=q[0]-q[1]; const gate=Math.max(0,Math.min(1,(rd-(sRd-0.045))/0.03));
+    const dch=Math.hypot(q[0]-sr,q[1]-sg); const redder = rd>sRd ? Math.max(0,dch-(rd-sRd)) : dch;
+    return gate*Math.exp(-redder*redder/(2*cs*cs)); };
+  // per line: region term (face inside, non-face outside) + edge contrast
+  const S=new Float32Array(nL*nd), k=3;
+  for (let i=0;i<nL;i++){
+    const col=new Array(nd), f=new Float32Array(nd), ok=new Uint8Array(nd);
+    for(let j=0;j<nd;j++){ const c=at(i, dMin+j); ok[j]=c?1:0; col[j]=c||[0,0,0]; f[j]=c?face(c):0; }
+    const pre=new Float32Array(nd+1); for(let j=0;j<nd;j++) pre[j+1]=pre[j]+(1-f[j]);
+    const tot=new Float32Array(nd+1); for(let j=nd-1;j>=0;j--) tot[j]=tot[j+1]+f[j];
+    let rMin=Infinity,rMax=-Infinity,cMax=1e-6; const Rr=new Float32Array(nd), Cc=new Float32Array(nd);
+    for (let j=k;j<nd-k-1;j++){
+      Rr[j]=-(pre[j+1]+tot[j+1]); if(Rr[j]<rMin)rMin=Rr[j]; if(Rr[j]>rMax)rMax=Rr[j];
+      let ir=0,ig=0,ib=0,or=0,og=0,ob=0;
+      for(let q=0;q<k;q++){ const c1=col[j-q], c2=col[j+1+q]; ir+=c1[0];ig+=c1[1];ib+=c1[2]; or+=c2[0];og+=c2[1];ob+=c2[2]; }
+      Cc[j]=Math.hypot(ir-or,ig-og,ib-ob)/k; if(Cc[j]>cMax)cMax=Cc[j];
+    }
+    const rr=Math.max(1e-6,rMax-rMin);
+    for (let j=k;j<nd-k-1;j++){ let inside=1; for(let q=-k-2;q<=k+3;q++){ const jj=j+q; if(jj>=0&&jj<nd&&!ok[jj]){inside=0;break;} } S[i*nd+j]= inside ? (Rr[j]-rMin)/rr + 0.5*Cc[j]/cMax : 0; }
+  }
+  // dynamic programming: one continuous edge from N (offset 0) to C (offset 0)
+  const V=new Float32Array(nL*nd).fill(-1e9), P=new Int16Array(nL*nd), step=3;
+  const lam=0.04;
+  const j0=-dMin; for(let j=j0-4;j<=j0+4;j++) V[j]=S[j];
+  for (let i=1;i<nL;i++){
+    for (let j=k;j<nd-k-1;j++){
+      let best=-1e9, bk=0;
+      for(let q=-step;q<=step;q++){ const jj=j+q; if(jj<0||jj>=nd) continue; const v=V[(i-1)*nd+jj]-lam*Math.abs(q); if(v>best){best=v;bk=jj;} }
+      V[i*nd+j]=best+S[i*nd+j]; P[i*nd+j]=bk;
+    }
+  }
+  let jb=j0, bv=-1e9; for(let j=j0-4;j<=j0+4;j++){ const v=V[(nL-1)*nd+j]; if(v>bv){bv=v;jb=j;} }
+  const e=new Float64Array(nL); for(let i=nL-1;i>=0;i--){ e[i]=dMin+jb+0.5; jb=P[i*nd+jb]; }
+  const es=gaussSmooth(e, Math.max(1,L*0.005));
+  return {e, es, a, b, L, S, nd, dMin, nL};
+}
+function axisProfile(im, N, C, side){
+  const tr=traceEdge(im, N, C, side, {dMin:-0.18, dMax:0.5, t0:0, t1:1, s0:-0.1, s1:-0.04});
+  if (!tr) return null;
+  const {e, es, a, b, L, S, nd, dMin, nL}=tr;
+  let K=-1,kv=-Infinity; for(let i=Math.round(0.12*L); i<=Math.round(0.62*L); i++){ if(es[i]>kv){kv=es[i];K=i;} }
+  if (K<0 || kv<0.05*L) return null;
+  const dn=zigzag(es, K, Math.round(L*0.97), Math.max(1,L*0.008), ['min','max','min','max']);
+  const keys=['Sn','U','St','L'], ix={K}; dn.forEach((v,j)=>ix[keys[j]]=v);
+  const Pt=(i,off)=>({x:N.x+a.x*i+b.x*off, y:N.y+a.y*i+b.y*off});
+  const out={K:Pt(K,es[K])}, got={K:true};
+  if (ix.U!=null){ out.U=Pt(ix.U,es[ix.U]); got.U=true; }
+  if (ix.L!=null){ out.L=Pt(ix.L,es[ix.L]); got.L=true; }
+  const nk=Math.hypot(out.K.x-N.x,out.K.y-N.y);
+  const snI = ix.Sn!=null ? ix.Sn : K+Math.round(0.2*nk);
+  const stI = ix.St!=null ? ix.St : (ix.U!=null&&ix.L!=null ? Math.round((ix.U+ix.L)/2) : Math.min(nL-1,K+Math.round(0.6*nk)));
+  out.K1 = Pt(Math.round(snI-0.25*(snI-K)), es[K]-0.6*nk);
+  out.U1 = Pt(stI, es[stI]-0.35*nk);
+  if (!out.U) out.U=Pt(Math.max(0,stI-Math.round(0.12*nk)), es[stI]+0.08*nk);
+  if (!out.L) out.L=Pt(Math.min(nL-1,stI+Math.round(0.14*nk)), es[stI]+0.06*nk);
+  // score: mean edge strength along the path (which side is the face)
+  let sc=0; for(let i=0;i<nL;i++){ const j=Math.round(e[i]-0.5-dMin); sc+=S[i*nd+Math.max(0,Math.min(nd-1,j))]; }
+  return {pts:out, got, side, score: sc/nL + (got.U?5:0)+(got.L?5:0), path:{N,a,b,e:es}};
+}
+function guidedDetect(image, Nimg, Cimg, pref){
+  const im=prepImage(image, 1400), s=im.sc;
+  const N={x:Nimg.x*s,y:Nimg.y*s}, C={x:Cimg.x*s,y:Cimg.y*s};
+  const cand=(pref?[pref]:[1,-1]).map(sd=>axisProfile(im,N,C,sd)).filter(Boolean);
+  if (!cand.length) return null;
+  cand.sort((p,q)=>q.score-p.score); const r=cand[0];
+  const back=p=>({x:p.x/s,y:p.y/s});
+  const pts={N:{...Nimg}, C:{...Cimg}}; ['K','U','L','K1','U1'].forEach(k=>pts[k]=back(r.pts[k]));
+  return {pts, got:{N:true,C:true,...r.got}, side:r.side};
+}
+
+// ---------- nasal dorsum: deviation from the straight N–K line ----------
+const DTOL=2; // % of N–K length treated as straight
+let imPrep=null, dors=null, dorsKey='';
+function getPrep(){ if(!imPrep) imPrep=prepImage(img,1400); return imPrep; }
+function computeDorsum(){
+  if(!pts||!pts.N||!pts.K||!img) return null;
+  const key=[pts.N.x,pts.N.y,pts.K.x,pts.K.y,facing,imgW].map(v=>Math.round(v*10)).join(',');
+  if (key===dorsKey) return dors;
+  dorsKey=key;
+  const im=getPrep(), sc=im.sc, N={x:pts.N.x*sc,y:pts.N.y*sc}, K={x:pts.K.x*sc,y:pts.K.y*sc};
+  const tr=traceEdge(im, N, K, facing, {dMin:-0.25, dMax:0.25, t0:0.25, t1:0.8, s0:-0.22, s1:-0.12, minL:15});
+  if(!tr){ dors=null; return null; }
+  const {es,a,b,L}=tr; const i0=Math.round(0.1*L), i1=Math.round(0.82*L);
+  let mx=-Infinity, mxI=i0, mn=Infinity, mnI=i0;
+  for(let i=i0;i<=i1;i++){ if(es[i]>mx){mx=es[i];mxI=i;} if(es[i]<mn){mn=es[i];mnI=i;} }
+  const img2=(i,off)=>({x:(N.x+a.x*i+b.x*off)/sc, y:(N.y+a.y*i+b.y*off)/sc});
+  const path=[]; for(let i=0;i<es.length;i+=Math.max(1,Math.round(L/60))) path.push(img2(i,es[i]));
+  const hump=Math.max(0,mx)/L*100, sad=Math.max(0,-mn)/L*100;
+  const main = hump>=sad ? {kind:'hump', pct:hump, i:mxI} : {kind:'concave', pct:sad, i:mnI};
+  dors={hump, sad, main, path, L, es, at:(f)=>{ const i=Math.max(0,Math.min(es.length-1,Math.round(f*L))); return {f:i/L, pt:img2(i,es[i]), off:es[i]/L}; },
+        peak:img2(main.i, es[main.i]), foot:img2(main.i,0)};
+  return dors;
+}
+
+// ---------- geometry ----------
+function theta(P){ // signed angle of P from N->C at N, anterior positive (degrees)
+  const N=pts.N, C=pts.C; const vx=C.x-N.x, vy=C.y-N.y, wx=P.x-N.x, wy=P.y-N.y;
+  const cr = vx*wy - vy*wx, dt = vx*wx + vy*wy;
+  return -facing * Math.atan2(cr, dt) * 180/Math.PI;
+}
+function syncFacing(){
+  if(!pts||!pts.N||!pts.C||!pts.K) return;
+  const N=pts.N, C=pts.C, K=pts.K; const cr=(C.x-N.x)*(K.y-N.y)-(C.y-N.y)*(K.x-N.x);
+  const f = cr<0 ? 1 : -1;   // screen coords: K anterior on the right gives negative cross
+  if (f!==facing){ facing=f; $('faceR').setAttribute('aria-pressed', f>0); $('faceL').setAttribute('aria-pressed', f<0); dorsKey=''; }
+}
+function measure(){
+  syncFacing();
+  const t = {K:theta(pts.K), U:theta(pts.U), L:theta(pts.L), K1:theta(pts.K1), U1:theta(pts.U1)};
+  const A = [
+    {g:'Nose', id:'C–N–K', v:t.K, ideal:30, desc:'Free (projecting) nose relative to chin', cls:'mod'},
+    {g:'Nose', id:'C–N–K1', v:-t.K1, ideal:10, desc:'Embedded nose relative to chin', cls:'emb', est:'K1'},
+    {g:'Upper lip', id:'K–N–U', v:t.K-t.U, ideal:22, desc:'Upper lip relative to nose', cls:'mod'},
+    {g:'Upper lip', id:'U–N–C', v:t.U, ideal:8, desc:'Free upper lip relative to chin', cls:'mod'},
+    {g:'Upper lip', id:'U–N–U1', v:t.U-t.U1, ideal:18, desc:'Upper-lip volume', cls:'com', est:'U1'},
+    {g:'Lower lip', id:'K–N–L', v:t.K-t.L, ideal:26, desc:'Lower lip relative to nose', cls:'mod'},
+    {g:'Lower lip', id:'L–N–C', v:t.L, ideal:4, desc:'Free lower lip relative to chin', cls:'mod'},
+    {g:'Lower lip', id:'L–N–U', v:t.U-t.L, ideal:4, desc:'Lower lip relative to upper lip', cls:'mod'},
+    {g:'Lower lip', id:'L–N–U1', v:t.L-t.U1, ideal:14, desc:'Lower-lip volume', cls:'com', est:'U1'},
+    {g:'Lips', id:'C–N–U1', v:-t.U1, ideal:10, desc:'Embedded lips relative to chin', cls:'emb', est:'U1'},
+  ];
+  return {t, A};
+}
+function diagnose(t){
+  const dK=t.K-30, dU=t.U-8, dL=t.L-4;
+  const cands=[0,dK,dU,dL,(dK+dU+dL)/3];
+  let best=null;
+  cands.forEach((c,i)=>{
+    const r={c, n:dK-c, u:dU-c, l:dL-c};
+    const cnt=(Math.abs(r.c)>tol)+(Math.abs(r.n)>tol)+(Math.abs(r.u)>tol)+(Math.abs(r.l)>tol);
+    const mag=Math.abs(r.n)+Math.abs(r.u)+Math.abs(r.l)+Math.abs(r.c);
+    const sc=cnt*100 + mag + (i===0?-0.01:0);
+    if(!best||sc<best.sc) best={...r,sc,cnt};
+  });
+  return {dK,dU,dL,...best};
+}
+const f1 = v => { const r=Math.round(v*10)/10; return (r===0?0:r).toFixed(1); };
+const sgn = v => { const r=Math.round(v*10)/10; return (r>0?'+':r<0?'−':'±') + f1(Math.abs(r)); };
+
+// ---------- rendering: canvas ----------
+function layoutCanvas(){
+  if (!img) return;
+  const st=$('stage'); const availW = st.clientWidth - 20;
+  const maxH = Math.max(320, Math.min(window.innerHeight*0.74, 900));
+  dispK = Math.min(availW/imgW, maxH/imgH); vz=1; vx=0; vy=0;
+  dpr = window.devicePixelRatio || 1;
+  cv.style.width = Math.round(imgW*dispK)+'px'; cv.style.height = Math.round(imgH*dispK)+'px';
+  cv.width = Math.round(imgW*dispK*dpr); cv.height = Math.round(imgH*dispK*dpr);
+  draw();
+}
+function kk(){ return dispK*vz; }
+function clampView(){ const W=imgW*dispK, H=imgH*dispK; vz=Math.max(1,Math.min(8,vz)); vx=Math.min(0,Math.max(W-W*vz,vx)); vy=Math.min(0,Math.max(H-H*vz,vy)); }
+function zoomAt(z, cxp, cyp){ const ix=(cxp-vx)/kk(), iy=(cyp-vy)/kk(); vz=z; clampView(); vx=cxp-ix*kk(); vy=cyp-iy*kk(); clampView(); draw(); }
+function toScreen(p){ return {x:p.x*kk()+vx, y:p.y*kk()+vy}; }
+function draw(){
+  if (!img) return;
+  ctx.setTransform(dpr,0,0,dpr,0,0);
+  const W=imgW*dispK, H=imgH*dispK;
+  ctx.clearRect(0,0,W,H);
+  ctx.drawImage(img,vx,vy,W*vz,H*vz);
+  syncFacing();
+  if (!pts || !pts.N || !pts.C) { if (pts) ORDER.forEach(k=>{ if(pts[k]) drawPoint(k); }); return; }
+  const N=toScreen(pts.N), C=toScreen(pts.C);
+  // axis N–C extended
+  const ax_=C.x-N.x, ay_=C.y-N.y, L=Math.hypot(ax_,ay_)||1;
+  const ax0={x:N.x-ax_/L*20,y:N.y-ay_/L*20}, ax1={x:C.x+ax_/L*40,y:C.y+ay_/L*40};
+  line(ax0,ax1,'rgba(255,255,255,.9)',3.5,[]); line(ax0,ax1,'#17212b',1.6,[7,5]);
+  // rays
+  ['K','U','L'].forEach(k=>{ if(pts[k]) { const P=toScreen(pts[k]); line(N,P,'rgba(255,255,255,.85)',3,[]); line(N,P,'#0e7c74',1.6,[]);} });
+  ['K1','U1'].forEach(k=>{ if(pts[k]) { const P=toScreen(pts[k]); line(N,P,'rgba(255,255,255,.8)',3,[]); line(N,P,'#c98a1e',1.5,[5,4]);} });
+  // C–N–K arc
+  if (pts.K){
+    const r = Math.min(L*0.28, 70);
+    const aC = Math.atan2(ay_,ax_), P=toScreen(pts.K), aK=Math.atan2(P.y-N.y,P.x-N.x);
+    ctx.beginPath(); ctx.arc(N.x,N.y,r,aC,aK, facing>0); ctx.strokeStyle='rgba(255,255,255,.9)'; ctx.lineWidth=4.5; ctx.setLineDash([]); ctx.stroke();
+    ctx.beginPath(); ctx.arc(N.x,N.y,r,aC,aK, facing>0); ctx.strokeStyle='#0e7c74'; ctx.lineWidth=2.2; ctx.stroke();
+    const am=(aC+aK)/2, lx=N.x+Math.cos(am)*(r+22), ly=N.y+Math.sin(am)*(r+22);
+    pill(f1(theta(pts.K))+'°', lx, ly, '#0e7c74');
+  }
+  computeDorsum();
+  if (dors && dors.path.length>2){
+    ctx.beginPath(); dors.path.forEach((p,i)=>{ const q=toScreen(p); i?ctx.lineTo(q.x,q.y):ctx.moveTo(q.x,q.y); });
+    ctx.strokeStyle='rgba(255,255,255,.85)'; ctx.lineWidth=3; ctx.stroke(); ctx.strokeStyle='#7a3fa0'; ctx.lineWidth=1.4; ctx.stroke();
+    if (dors.main.pct>DTOL){ const p=toScreen(dors.peak), f=toScreen(dors.foot); line(f,p,'rgba(255,255,255,.9)',4,[]); line(f,p,'#b23f2c',2.2,[]);
+      pill(`${dors.main.kind==='hump'?'hump +':'concave −'}${f1(dors.main.pct)}%`, p.x+(p.x-f.x)*0+facing*46, p.y-(dors.main.kind==='hump'?18:-18), '#b23f2c'); }
+  }
+  ORDER.forEach(k=>{ if(pts[k]) drawPoint(k); });
+  drawPlacing();
+  if (dragging && loupeAt) drawLoupe(loupeAt);
+}
+function line(a,b,col,w,dash){ ctx.beginPath(); ctx.moveTo(a.x,a.y); ctx.lineTo(b.x,b.y); ctx.strokeStyle=col; ctx.lineWidth=w; ctx.setLineDash(dash); ctx.stroke(); ctx.setLineDash([]); }
+function pill(text,x,y,col){
+  ctx.font='600 12px "IBM Plex Sans", system-ui, sans-serif'; const tw=ctx.measureText(text).width;
+  const w=tw+12,h=19; ctx.fillStyle='rgba(255,255,255,.94)'; roundRect(x-w/2,y-h/2,w,h,9); ctx.fill();
+  ctx.fillStyle=col; ctx.textAlign='center'; ctx.textBaseline='middle'; ctx.fillText(text,x,y+.5);
+}
+function roundRect(x,y,w,h,r){ ctx.beginPath(); ctx.moveTo(x+r,y); ctx.arcTo(x+w,y,x+w,y+h,r); ctx.arcTo(x+w,y+h,x,y+h,r); ctx.arcTo(x,y+h,x,y,r); ctx.arcTo(x,y,x+w,y,r); ctx.closePath(); }
+function drawPoint(k){
+  const P=toScreen(pts[k]), est=pts[k].est, col=COL[k], r = (sel===k? 8.5:7);
+  ctx.beginPath(); ctx.arc(P.x,P.y,r+2.5,0,Math.PI*2); ctx.fillStyle='rgba(255,255,255,.95)'; ctx.fill();
+  ctx.beginPath(); ctx.arc(P.x,P.y,r,0,Math.PI*2);
+  if (est){ ctx.fillStyle='rgba(255,255,255,.95)'; ctx.fill(); ctx.setLineDash([3,2.5]); ctx.strokeStyle=col; ctx.lineWidth=2.4; ctx.stroke(); ctx.setLineDash([]); }
+  else { ctx.fillStyle=col; ctx.fill(); }
+  if (sel===k){ ctx.beginPath(); ctx.arc(P.x,P.y,r+6,0,Math.PI*2); ctx.strokeStyle='#0e7c74'; ctx.lineWidth=2; ctx.stroke(); }
+  // label on the anterior side, above
+  const dx = (k==='K1'||k==='U1') ? -facing*20 : facing*20;
+  pill(k, P.x+dx, P.y-16, col==='#c98a1e' ? '#8a5a0c' : col);
+}
+function drawLoupe(k){
+  const P=toScreen(pts[k]); const R=64, Z=3, W=imgW*dispK;
+  const cx = P.x < W/2 ? W - R - 12 : R + 12, cy = R + 12;
+  ctx.save(); ctx.beginPath(); ctx.arc(cx,cy,R,0,Math.PI*2); ctx.closePath(); ctx.fillStyle='#000'; ctx.fill(); ctx.clip();
+  const sx=pts[k].x - R/(Z*kk()), sy=pts[k].y - R/(Z*kk()), sw=2*R/(Z*kk());
+  ctx.drawImage(img, sx, sy, sw, sw, cx-R, cy-R, 2*R, 2*R);
+  ctx.strokeStyle='rgba(255,255,255,.9)'; ctx.lineWidth=1; ctx.beginPath(); ctx.moveTo(cx-R,cy); ctx.lineTo(cx+R,cy); ctx.moveTo(cx,cy-R); ctx.lineTo(cx,cy+R); ctx.stroke();
+  ctx.beginPath(); ctx.arc(cx,cy,5,0,Math.PI*2); ctx.strokeStyle=COL[k]; ctx.lineWidth=2; ctx.stroke();
+  ctx.restore();
+  ctx.beginPath(); ctx.arc(cx,cy,R,0,Math.PI*2); ctx.strokeStyle='#fff'; ctx.lineWidth=3; ctx.stroke();
+  pill(k, cx, cy+R-14, '#17212b');
+}
+function drawPlacing(){ /* placement prompt is shown in the bar */ }
+
+// ---------- rendering: results ----------
+function status(text, kind){ $('statusText').textContent=text; $('status').className='status'+(kind?(' '+kind):''); }
+function chipFor(row){
+  if (row.est && pts[row.est] && pts[row.est].est) return '<span class="chip c-est">Estimate</span>';
+  const d=row.v-row.ideal;
+  if (Math.abs(d)<=tol) return '<span class="chip c-ok">Ideal</span>';
+  const cls = Math.abs(d)<=2*tol ? 'c-mild' : 'c-bad';
+  let word = row.cls==='emb' ? 'Differs' : (d>0?'Increased':'Decreased');
+  return `<span class="chip ${cls}">${word}</span>`;
+}
+function renderResults(){
+  if (!pts || ORDER.some(k=>!pts[k])) return;
+  const {t,A}=measure();
+  computeDorsum();
+  // table
+  let html='', lastG='';
+  A.forEach(r=>{
+    if (r.g!==lastG){ html+=`<tr class="grp"><td colspan="6">${r.g}</td></tr>`; lastG=r.g; }
+    const cl = r.cls==='mod' ? 'Modifiable' : r.cls==='emb' ? 'Embedded' : 'Composite';
+    html+=`<tr><td class="ang">${r.id}</td><td class="desc">${r.desc} <span class="muted small">· ${cl}</span></td><td class="num">${f1(r.v)}°</td><td class="num">${r.ideal}°</td><td class="num">${sgn(r.v-r.ideal)}</td><td>${chipFor(r)}</td></tr>`;
+  });
+  if (dors){ const m=dors.main, v=m.kind==='hump'?m.pct:-m.pct;
+    const ch = m.pct<=DTOL ? '<span class="chip c-ok">Straight</span>' : `<span class="chip ${m.pct<=2*DTOL?'c-mild':'c-bad'}">${m.kind==='hump'?'Hump':'Concave'}</span>`;
+    html+=`<tr class="grp"><td colspan="6">Nasal dorsum</td></tr><tr><td class="ang">N–K line</td><td class="desc">Largest dorsal deviation from the straight N–K line, % of N–K length (+ hump, − concave) <span class="muted small">· Modifiable</span></td><td class="num">${v>0?'+':v<0?'−':''}${f1(Math.abs(v))}%</td><td class="num">0%</td><td class="num">${sgn(v)}</td><td>${ch}</td></tr>`; }
+  $('tbody').innerHTML=html;
+  // diagnosis
+  const D=diagnose(t); renderVerdict(D,t);
+  renderMap(t);
+  scheduleSim();
+}
+function renderVerdict(D,t){
+  const items=[], dev=[];
+  if (Math.abs(D.n)>tol){ dev.push(D.n>0?`Nose over-projected by ${f1(D.n)}°`:`Nose under-projected by ${f1(-D.n)}°`);
+    items.push(['Nose', D.n>0?`<b>Nose reduction</b> (reduction rhinoplasty) of about ${f1(D.n)}° of tip projection.`:`<b>Nose augmentation</b> (augmentation rhinoplasty) of about ${f1(-D.n)}° of tip projection.`]); }
+  if (Math.abs(D.c)>tol){ dev.push(D.c>0?`Chin retrusive by ${f1(D.c)}°`:`Chin prominent by ${f1(-D.c)}°`);
+    items.push(['Chin', D.c>0?`<b>Advance the chin</b> about ${f1(D.c)}° (genioplasty or mandibular advancement, as clinically indicated).`:`<b>Reduce or set back the chin</b> about ${f1(-D.c)}°, as clinically indicated.`]); }
+  if (Math.abs(D.u)>tol){ dev.push(D.u>0?`Upper lip protrusive by ${f1(D.u)}°`:`Upper lip retrusive by ${f1(-D.u)}°`);
+    items.push(['Upper lip', D.u>0?`<b>Retract the upper lip</b> by about ${f1(D.u)}°.`:`<b>Advance the upper lip</b> by about ${f1(-D.u)}°.`]); }
+  if (Math.abs(D.l)>tol){ dev.push(D.l>0?`Lower lip protrusive by ${f1(D.l)}°`:`Lower lip retrusive by ${f1(-D.l)}°`);
+    items.push(['Lower lip', D.l>0?`<b>Retract the lower lip</b> by about ${f1(D.l)}°.`:`<b>Advance the lower lip</b> by about ${f1(-D.l)}°.`]); }
+  if (dors && dors.main.pct>DTOL){ const m=dors.main;
+    dev.push(m.kind==='hump'?`Dorsal hump ${f1(m.pct)}% above the N–K line`:`Concave (saddle) dorsum ${f1(m.pct)}% below the N–K line`);
+    items.push(['Dorsum', m.kind==='hump'?`<b>Dorsal hump reduction</b>: bring the bridge down onto the straight N–K line.`:`<b>Dorsal augmentation</b> (saddle correction): build the bridge up to the straight N–K line.`]); }
+  const v=$('verdict');
+  const keep=[]; if(Math.abs(D.n)<=tol) keep.push('nose'); if(Math.abs(D.c)<=tol) keep.push('chin'); if(Math.abs(D.u)<=tol) keep.push('upper lip'); if(Math.abs(D.l)<=tol) keep.push('lower lip');
+  if (!dev.length){
+    v.className='card verdict ok'; $('vHead').textContent='Balanced within the angular frame';
+    $('vWhy').textContent=`Nose, chin and both lips are within ±${f1(tol)}° of the proposed norms. If the profile still looks unbalanced, check the vertical position of the chin along N–C, which angles at N cannot register (Case 1).`;
+    $('vTx').innerHTML='<div><span class="tag c-ok">Plan</span><span>No angular correction indicated. Preserve the current balance.</span></div>';
+  } else {
+    v.className='card verdict dev'; $('vHead').textContent = dev.length===1 ? dev[0] : dev.join(' · ');
+    let why='';
+    const lipsNoseOK = Math.abs(D.dU-D.dK)<=tol && Math.abs(D.dL-D.dK)<=tol;
+    const lipsChinOK = Math.abs(D.dU)<=tol && Math.abs(D.dL)<=tol;
+    if (Math.abs(D.dK)>tol && lipsChinOK) why=`C–N–K is ${f1(t.K)}° (ideal 30°). The lips are ideal relative to the chin but out of balance with the nose, so the nose is the deviating component.`;
+    else if (Math.abs(D.dK)>tol && lipsNoseOK) why=`C–N–K is ${f1(t.K)}° (ideal 30°). The lips are ideal relative to the nose and all shifted equally against the chin, so the chin is the deviating component.`;
+    else if (Math.abs(D.dK)<=tol) why=`C–N–K is ideal (${f1(t.K)}°), so nose and chin are balanced. The deviating lip moved in a paired change: closer to one reference, farther from the other.`;
+    else why=`C–N–K is ${f1(t.K)}° (ideal 30°). The simplest explanation that fits all the angles involves ${dev.length} components.`;
+    if (dors && dors.main.pct>DTOL && dev.length===1) why=`All angles are within ±${f1(tol)}°, but the nasal bridge is not on the straight line from N to K: its largest deviation is ${f1(dors.main.pct)}% of the N–K length.`;
+    if (keep.length) why+=` Keep the ${keep.join(', ')} unchanged.`;
+    $('vWhy').textContent=why;
+    $('vTx').innerHTML=items.map(([k,s])=>`<div><span class="tag c-bad">${k}</span><span>${s}</span></div>`).join('');
+  }
+  // steps
+  const st1 = Math.abs(D.dK)<=tol ? ['c-ok','Ideal'] : [ 'c-bad', D.dK>0?'Increased':'Decreased'];
+  const lipState=(a,b)=>{ if(Math.abs(a)<=tol&&Math.abs(b)<=tol) return ['c-ok','Ideal']; if(Math.abs(a-b)<=tol) return ['c-mild', `Both shifted ${sgn((a+b)/2)}°`]; if(Math.abs(a)<=tol) return ['c-mild','Lower lip changed']; if(Math.abs(b)<=tol) return ['c-mild','Upper lip changed']; return ['c-bad','Mixed']; };
+  const kU=(t.K-t.U)-22, kL=(t.K-t.L)-26;
+  const s2=lipState(kU,kL), s3=lipState(D.dU,D.dL);
+  $('vSteps').innerHTML=[
+    ['Step 1 · C–N–K', `${f1(t.K)}°`, st1],
+    ['Step 2 · Lips → nose', `${f1(t.K-t.U)}° · ${f1(t.K-t.L)}°`, s2],
+    ['Step 3 · Lips → chin', `${f1(t.U)}° · ${f1(t.L)}°`, s3]
+  ].map(([k,val,[c,w]])=>`<div class="step"><div class="k">${k}</div><div class="v">${val}</div><span class="chip ${c}">${w}</span></div>`).join('');
+}
+function renderMap(t){
+  const x0=40, x1=540, lo=-16, hi=42, X=v=>x0+(Math.max(lo,Math.min(hi,v))-lo)/(hi-lo)*(x1-x0);
+  const css=getComputedStyle(document.documentElement);
+  const ink=css.getPropertyValue('--ink').trim(), muted=css.getPropertyValue('--muted').trim(), line=css.getPropertyValue('--line').trim();
+  const teal=css.getPropertyValue('--teal').trim(), amber=css.getPropertyValue('--amber').trim(), bad=css.getPropertyValue('--bad').trim();
+  let s=`<rect x="${X(-tol)}" y="46" width="${X(tol)-X(-tol)}" height="0" fill="none"></rect>`;
+  for(let v=-15; v<=40; v+=5){ s+=`<line x1="${X(v)}" y1="100" x2="${X(v)}" y2="${v%10===0?108:105}" stroke="${muted}" stroke-width="1"></line>`; if(v%10===0||v===-15) s+=`<text x="${X(v)}" y="122" text-anchor="middle" font-size="11" fill="${muted}" font-family="IBM Plex Mono, monospace">${v}°</text>`; }
+  s+=`<line x1="${x0}" y1="100" x2="${x1}" y2="100" stroke="${line}" stroke-width="2"></line>`;
+  s+=`<line x1="${X(0)}" y1="12" x2="${X(0)}" y2="112" stroke="${ink}" stroke-width="1.5" stroke-dasharray="4 3"></line>`;
+  s+=`<text x="${X(0)}" y="138" text-anchor="middle" font-size="11" font-weight="600" fill="${ink}" font-family="IBM Plex Sans, sans-serif">C (N–C axis)</text>`;
+  s+=`<text x="${x0}" y="160" font-size="11" fill="${muted}" font-family="IBM Plex Sans, sans-serif">← posterior (embedded)</text><text x="${x1}" y="160" text-anchor="end" font-size="11" fill="${muted}" font-family="IBM Plex Sans, sans-serif">anterior (free) →</text>`;
+  const marks=[['K1',t.K1,-10,amber,true],['U1',t.U1,-10,amber,true],['L',t.L,4,teal,false],['U',t.U,8,teal,false],['K',t.K,30,teal,false]];
+  const rowY={K:22,U:38,L:54,K1:70,U1:86};
+  marks.forEach(([k,v,ideal,col,emb])=>{
+    const y=rowY[k], dv=v-ideal, est=pts[k]&&pts[k].est;
+    const c = est ? muted : (Math.abs(dv)<=tol ? col : bad);
+    s+=`<line x1="${X(ideal)}" y1="${y}" x2="${X(v)}" y2="${y}" stroke="${c}" stroke-width="2"></line>`;
+    s+=`<circle cx="${X(ideal)}" cy="${y}" r="5" fill="none" stroke="${muted}" stroke-width="1.5"></circle>`;
+    s+=`<circle cx="${X(v)}" cy="${y}" r="5.5" fill="${est?'none':c}" stroke="${c}" stroke-width="2" ${est?'stroke-dasharray="2.5 2"':''}></circle>`;
+    const lx = X(v) + (v>=ideal? 10 : -10);
+    s+=`<text x="${lx}" y="${y+4}" text-anchor="${v>=ideal?'start':'end'}" font-size="11.5" font-weight="600" fill="${c}" font-family="IBM Plex Sans, sans-serif">${k} ${f1(v)}°</text>`;
+  });
+  s+=`<text x="${x1}" y="160" text-anchor="middle" dx="-200"  font-size="11" fill="${muted}" font-family="IBM Plex Sans, sans-serif">○ ideal   ● measured</text>`;
+  $('map').innerHTML=s;
+}
+
+// ---------- before / after simulation ----------
+let simMode='plan', simTimer=0;
+function planTargets(){
+  const {t}=measure(); const D=diagnose(t);
+  const N=pts.N, C=pts.C, nc=Math.hypot(C.x-N.x,C.y-N.y);
+  const frame = (Cp) => { const ax=(Cp.x-N.x), ay=(Cp.y-N.y), L=Math.hypot(ax,ay); const a={x:ax/L,y:ay/L}; return {a, b:{x:facing*a.y, y:-facing*a.x}}; };
+  const all = simMode==='all';
+  const LIM=15; ['c','n','u','l'].forEach(k=>{ if(Math.abs(D[k])>LIM) D.tooBig=true; });
+  const move = { chin: all ? Math.abs(D.c)>0.05 : Math.abs(D.c)>tol, nose: all || Math.abs(D.n)>tol, U: all || Math.abs(D.u)>tol, L: all || Math.abs(D.l)>tol };
+  const T = {}; ORDER.forEach(k=>T[k]={x:pts[k].x,y:pts[k].y});
+  const F0 = frame(C);
+  if (move.chin){ const r=D.c*Math.PI/180; T.C={x:N.x+nc*(Math.cos(r)*F0.a.x+Math.sin(r)*F0.b.x), y:N.y+nc*(Math.cos(r)*F0.a.y+Math.sin(r)*F0.b.y)}; }
+  const F = frame(T.C);
+  const toAngle = (P,deg) => { const along=(P.x-N.x)*F.a.x+(P.y-N.y)*F.a.y; const off=along*Math.tan(deg*Math.PI/180); return {x:N.x+along*F.a.x+off*F.b.x, y:N.y+along*F.a.y+off*F.b.y}; };
+  if (move.nose) T.K = toAngle(pts.K, 30);
+  if (move.U) T.U = toAngle(pts.U, 8);
+  if (move.L) T.L = toAngle(pts.L, 4);
+  // dorsum: keep it on (or bring it to) the straight line from N to the new tip
+  const extra=[]; const d=computeDorsum();
+  move.dorsum = !!d && (all ? d.main.pct>0.3 : d.main.pct>DTOL);
+  if (d){
+    const kx=T.K.x-N.x, ky=T.K.y-N.y, kl=Math.hypot(kx,ky), bx=facing*ky/kl, by=-facing*kx/kl;
+    const ox=pts.K.x-N.x, oy=pts.K.y-N.y, ol=Math.hypot(ox,oy);
+    [0.2,0.35,0.5,0.65,0.8].forEach(f=>{ const q=d.at(f); const off = move.dorsum ? 0 : q.off*ol*(kl/ol);
+      const t={x:N.x+kx*q.f+bx*off, y:N.y+ky*q.f+by*off};
+      if (Math.hypot(t.x-q.pt.x,t.y-q.pt.y)>0.3 || move.nose) extra.push({sx:q.pt.x,sy:q.pt.y,tx:t.x,ty:t.y}); });
+  }
+  return {T, move, D, extra};
+}
+function thetaIn(P, N, C){ const vx=C.x-N.x, vy=C.y-N.y, wx=P.x-N.x, wy=P.y-N.y; return -facing*Math.atan2(vx*wy-vy*wx, vx*wx+vy*wy)*180/Math.PI; }
+function solve(A, B){ // A n×n, B n×2 → X n×2 (Gaussian elimination)
+  const n=A.length, M=A.map((r,i)=>[...r, B[i][0], B[i][1]]);
+  for(let c=0;c<n;c++){ let p=c; for(let r=c+1;r<n;r++) if(Math.abs(M[r][c])>Math.abs(M[p][c])) p=r; [M[c],M[p]]=[M[p],M[c]];
+    const d=M[c][c]||1e-9; for(let r=0;r<n;r++){ if(r===c) continue; const f=M[r][c]/d; for(let k=c;k<n+2;k++) M[r][k]-=f*M[c][k]; } }
+  return M.map((r,i)=>[r[n]/r[i], r[n+1]/r[i]]);
+}
+function warpImage(T, extra, chin){
+  const sc=Math.min(1, 1100/Math.max(imgW,imgH)), w=Math.round(imgW*sc), h=Math.round(imgH*sc);
+  const src=document.createElement('canvas'); src.width=w; src.height=h; const sg=src.getContext('2d',{willReadFrequently:true}); sg.drawImage(img,0,0,w,h);
+  const out=document.createElement('canvas'); out.width=w; out.height=h; const og=out.getContext('2d'); og.drawImage(src,0,0);
+  // chin block: translated as one piece, fading toward the lower lip, the neck and the back of the face
+  const Ns={x:pts.N.x*sc,y:pts.N.y*sc}, Cs={x:pts.C.x*sc,y:pts.C.y*sc}, NC=Math.hypot(Cs.x-Ns.x,Cs.y-Ns.y);
+  const ua={x:(Cs.x-Ns.x)/NC,y:(Cs.y-Ns.y)/NC}, ub={x:facing*ua.y,y:-facing*ua.x};
+  const cd = chin ? {x:chin.dx*sc, y:chin.dy*sc} : {x:0,y:0}, hasChin=Math.hypot(cd.x,cd.y)>0.3;
+  const tL=((pts.L.x*sc-Ns.x)*ua.x+(pts.L.y*sc-Ns.y)*ua.y)/NC;
+  const ss=(e0,e1,x)=>{ const q=Math.max(0,Math.min(1,(x-e0)/(e1-e0))); return q*q*(3-2*q); };
+  const dm=Math.hypot(cd.x,cd.y)/NC;                 // chin shift as a fraction of N–C
+  const t1=tL+Math.max(0.1,(1-tL)*0.85);              // full movement reached at the chin prominence
+  const tb=1.03, te=tb+Math.max(0.22, 2.4*dm);        // fade below the chin (submental), never a flat slab
+  const ub0=-Math.max(0.42, 0.2+3*dm), ub1=-0.12;     // fade toward the back of the jaw
+  const chinW=(x,y)=>{ if(!hasChin) return 0; const dx=x-Ns.x, dy=y-Ns.y, t=(dx*ua.x+dy*ua.y)/NC, u=(dx*ub.x+dy*ub.y)/NC;
+    return ss(tL+0.02,t1,t)*(1-ss(tb,te,t))*ss(ub0,ub1,u); };
+  const RAD={N:0.15,K:0.24,K1:0.15,U:0.13,U1:0.15,L:0.13,C:0.2};
+  const ctrl=ORDER.map(k=>{ const x=T[k].x*sc, y=T[k].y*sc, w=chinW(x,y); return {x, y, r:RAD[k], dx:(T[k].x-pts[k].x)*sc - w*cd.x, dy:(T[k].y-pts[k].y)*sc - w*cd.y}; });
+  (extra||[]).forEach(e=>{ const x=e.tx*sc, y=e.ty*sc, w=chinW(x,y); ctrl.push({x, y, r:0.11, dx:(e.tx-e.sx)*sc - w*cd.x, dy:(e.ty-e.sy)*sc - w*cd.y}); });
+  const maxD=Math.max(...ctrl.map(c=>Math.hypot(c.dx,c.dy)));
+  if (maxD<0.5 && !hasChin) return {src, out};
+  const nk=Math.hypot(pts.K.x-pts.N.x, pts.K.y-pts.N.y)*sc, sig=Math.max(6, nk*((extra&&extra.length)?0.2:0.3)), s2=2*sig*sig;
+  // bounded blending (no overshoot): each control pulls with its own radius; weights are capped so the result never exceeds the requested moves
+  const n=ctrl.length; ctrl.forEach(c=>{ const sgm=Math.max(5, nk*c.r); c.s2=2*sgm*sgm; });
+  const moving=ctrl.filter(c=>Math.hypot(c.dx,c.dy)>0.3), pad=nk*0.24*3.2;
+  let x0=0,x1=w-1,y0=0,y1=h-1;
+  if (!hasChin && moving.length){ x0=Math.max(0,Math.floor(Math.min(...moving.map(c=>c.x))-pad)); x1=Math.min(w-1,Math.ceil(Math.max(...moving.map(c=>c.x))+pad));
+    y0=Math.max(0,Math.floor(Math.min(...moving.map(c=>c.y))-pad)); y1=Math.min(h-1,Math.ceil(Math.max(...moving.map(c=>c.y))+pad)); }
+  const sd=sg.getImageData(0,0,w,h).data, od=og.getImageData(0,0,w,h), o=od.data;
+  const edgeM=Math.max(24, 0.07*Math.min(w,h));
+  for(let y=y0;y<=y1;y++){ for(let x=x0;x<=x1;x++){
+    const cw=chinW(x,y); let fx=cw*cd.x, fy=cw*cd.y; let sw=0, gx=0, gy=0; for(let i=0;i<n;i++){ const c=ctrl[i], g=Math.exp(-((x-c.x)**2+(y-c.y)**2)/c.s2); sw+=g; gx+=c.dx*g; gy+=c.dy*g; } const nm=Math.max(1,sw); fx+=gx/nm; fy+=gy/nm;
+    if (Math.abs(fx)<0.02 && Math.abs(fy)<0.02) continue;
+    { const bd=Math.min(x,y,w-1-x,h-1-y), q=Math.max(0,Math.min(1,bd/edgeM)), fb=q*q*(3-2*q); fx*=fb; fy*=fb; }
+    if (Math.abs(fx)<0.02 && Math.abs(fy)<0.02) continue;
+    const sx=Math.max(0,Math.min(w-1.001,x-fx)), sy=Math.max(0,Math.min(h-1.001,y-fy)), ix=sx|0, iy=sy|0, ax=sx-ix, ay=sy-iy;
+    const i00=(iy*w+ix)*4, i10=i00+4, i01=i00+w*4, i11=i01+4, k=(y*w+x)*4;
+    for(let c=0;c<3;c++) o[k+c]=(sd[i00+c]*(1-ax)+sd[i10+c]*ax)*(1-ay)+(sd[i01+c]*(1-ax)+sd[i11+c]*ax)*ay;
+    o[k+3]=255;
+  } }
+  og.putImageData(od,0,0);
+  return {src, out, sc};
+}
+function drawMarks(g, P, sc, ox, oy, lw){
+  const X=p=>({x:ox+p.x*sc, y:oy+p.y*sc}); const N=X(P.N), C=X(P.C);
+  const vx=C.x-N.x, vy=C.y-N.y, L=Math.hypot(vx,vy)||1;
+  const seg=(a,b,col,wd,dash)=>{ g.beginPath(); g.moveTo(a.x,a.y); g.lineTo(b.x,b.y); g.strokeStyle=col; g.lineWidth=wd; g.setLineDash(dash); g.stroke(); g.setLineDash([]); };
+  const a0={x:N.x-vx/L*14*lw,y:N.y-vy/L*14*lw}, a1={x:C.x+vx/L*30*lw,y:C.y+vy/L*30*lw};
+  seg(a0,a1,'rgba(255,255,255,.9)',3.2*lw,[]); seg(a0,a1,'#17212b',1.5*lw,[6*lw,4*lw]);
+  ['K','U','L'].forEach(k=>{ const p=X(P[k]); seg(N,p,'rgba(255,255,255,.85)',2.8*lw,[]); seg(N,p,'#0e7c74',1.4*lw,[]); });
+  ORDER.forEach(k=>{ const p=X(P[k]); g.beginPath(); g.arc(p.x,p.y,6*lw,0,Math.PI*2); g.fillStyle='#fff'; g.fill(); g.beginPath(); g.arc(p.x,p.y,4.3*lw,0,Math.PI*2); g.fillStyle=COL[k]; g.fill(); });
+}
+function simulate(){
+  if(!pts||!img) return;
+  const pl = planTargets(); const {T, move, D, extra} = pl;
+  if (D.tooBig){ $('simImg').removeAttribute('src'); $('simComp').innerHTML='<span class="chip c-bad">Not simulated</span>'; $('simRows').innerHTML='';
+    $('simHead').textContent='Correction too large to simulate: check the landmarks'; return; }
+  const r = warpImage(T, extra, move.chin ? {dx:T.C.x-pts.C.x, dy:T.C.y-pts.C.y} : null), sc = r.sc || Math.min(1, 1100/Math.max(imgW,imgH));
+  const w=r.src.width, h=r.src.height, gap=Math.round(w*0.03), band=Math.round(Math.max(34, w*0.07));
+  const cv2=document.createElement('canvas'); cv2.width=w*2+gap; cv2.height=h+band; const g=cv2.getContext('2d');
+  g.fillStyle='#1b2327'; g.fillRect(0,0,cv2.width,cv2.height);
+  g.drawImage(r.src,0,band); g.drawImage(r.out,w+gap,band);
+  const lw=Math.max(1, w/700);
+  if ($('simMarks').checked){ drawMarks(g, pts, sc, 0, band, lw); drawMarks(g, T, sc, w+gap, band, lw); }
+  g.fillStyle='#e4ebed'; g.font=`600 ${Math.round(band*0.42)}px "IBM Plex Sans", system-ui, sans-serif`; g.textBaseline='middle';
+  g.fillText('Before', Math.round(band*0.3), band/2); g.fillText(`After · ${simMode==='all'?'all to ideal':'treatment plan'} (simulation)`, w+gap+Math.round(band*0.3), band/2);
+  $('simImg').src = cv2.toDataURL('image/jpeg', 0.9);
+  // components + table
+  const lbl=[]; const ch=(on,txt)=>lbl.push(`<span class="chip ${on?'c-bad':'c-ok'}">${txt}</span>`);
+  ch(move.nose, move.nose ? (D.n>0?'Nose reduced':'Nose augmented') : 'Nose unchanged');
+  if (move.dorsum) ch(true, dors.main.kind==='hump'?'Dorsal hump reduced':'Dorsum augmented'); else ch(false,'Dorsum unchanged');
+  ch(move.chin, move.chin ? (D.c>0?'Chin advanced':'Chin set back') : 'Chin unchanged');
+  ch(move.U, move.U ? (D.u>0?'Upper lip retracted':'Upper lip advanced') : 'Upper lip unchanged');
+  ch(move.L, move.L ? (D.l>0?'Lower lip retracted':'Lower lip advanced') : 'Lower lip unchanged');
+  $('simComp').innerHTML=lbl.join('');
+  const b = k=>theta(pts[k]), a = k=>thetaIn(T[k], T.N, T.C);
+  const rowsS=[['C–N–K',b('K'),a('K'),30],['K–N–U',b('K')-b('U'),a('K')-a('U'),22],['U–N–C',b('U'),a('U'),8],['K–N–L',b('K')-b('L'),a('K')-a('L'),26],['L–N–C',b('L'),a('L'),4],['L–N–U',b('U')-b('L'),a('U')-a('L'),4]];
+  $('simRows').innerHTML=rowsS.map(([id,bv,av,iv])=>`<tr><td class="ang">${id}</td><td class="num">${f1(bv)}°</td><td class="num">${f1(av)}°</td><td class="num">${iv}°</td></tr>`).join('');
+  const anyMove = move.nose||move.chin||move.U||move.L||move.dorsum;
+  $('simHead').textContent = anyMove ? 'Profile after correction to the ideal angles' : 'No correction needed: the profile is already balanced';
+}
+function scheduleSim(){ clearTimeout(simTimer); simTimer=setTimeout(()=>{ if(!dragging) simulate(); }, 250); }
+$('modePlan').addEventListener('click',()=>{ simMode='plan'; $('modePlan').setAttribute('aria-pressed','true'); $('modeAll').setAttribute('aria-pressed','false'); simulate(); });
+$('modeAll').addEventListener('click',()=>{ simMode='all'; $('modeAll').setAttribute('aria-pressed','true'); $('modePlan').setAttribute('aria-pressed','false'); simulate(); });
+$('simMarks').addEventListener('change',simulate);
+
+// ---------- PDF report ----------
+let dlNS=null;
+(async()=>{ try{ dlNS = window.claude && window.claude.use ? await window.claude.use('downloads') : null; }catch(e){ dlNS=null; } if (window.jspdf) $('pdfBtn').hidden=false; })();
+const pdfTxt = s => String(s).replace(/[−–—]/g,'-').replace(/→/g,'->').replace(/Δ/g,'Diff').replace(/[“”]/g,'"').replace(/[^\x00-\xFF]/g,'');
+function statusText(r){ if (r.est && pts[r.est] && pts[r.est].est) return 'Estimate'; const d=r.v-r.ideal; if (Math.abs(d)<=tol) return 'Ideal'; return r.cls==='emb' ? 'Differs' : (d>0?'Increased':'Decreased'); }
+function annotatedPhoto(){
+  const sc=Math.min(1, 1400/Math.max(imgW,imgH)), w=Math.round(imgW*sc), h=Math.round(imgH*sc);
+  const c=document.createElement('canvas'); c.width=w; c.height=h; const g=c.getContext('2d'); g.drawImage(img,0,0,w,h);
+  drawMarks(g, pts, sc, 0, 0, Math.max(1,w/700));
+  if (dors && dors.path.length>2){ g.beginPath(); dors.path.forEach((p,i)=>{ i?g.lineTo(p.x*sc,p.y*sc):g.moveTo(p.x*sc,p.y*sc); }); g.strokeStyle='#7a3fa0'; g.lineWidth=Math.max(1.5,w/500); g.stroke(); }
+  g.font=`600 ${Math.round(w/45)}px sans-serif`; g.textBaseline='middle';
+  ORDER.forEach(k=>{ const p=pts[k]; const x=p.x*sc+((k==='K1'||k==='U1')?-facing:facing)*w/40, y=p.y*sc-w/60; g.fillStyle='rgba(255,255,255,.9)'; const tw=g.measureText(k).width; g.fillRect(x-tw/2-4,y-w/80,tw+8,w/40); g.fillStyle='#17212b'; g.textAlign='center'; g.fillText(k,x,y); });
+  return {url:c.toDataURL('image/jpeg',0.9), w, h};
+}
+async function exportPdf(){
+  if(!pts || ORDER.some(k=>!pts[k])){ status('Place all seven landmarks before exporting.','warn'); return; }
+  if(!window.jspdf){ status('PDF export is not available in this view.','err'); return; }
+  const {jsPDF}=window.jspdf; const doc=new jsPDF({unit:'mm',format:'a4'});
+  const {t,A}=measure(); const D=diagnose(t); computeDorsum(); renderResults(); simulate();
+  const M=14, PW=210, CW=PW-2*M; const caseId=$('caseId').value.trim()||'Patient'; const today=new Date().toISOString().slice(0,10);
+  const foot=(n)=>{ doc.setFont('helvetica','normal'); doc.setFontSize(7.5); doc.setTextColor(110);
+    doc.text(pdfTxt('Method: Al-Shehri AF. Angular soft-tissue cephalometric analysis (N-C axis). Preprint, Zenodo 2026. doi:10.5281/zenodo.23005730'), M, 287);
+    doc.text(pdfTxt('Decision support for planning and research. Ideal values are proposed norms; confirm every finding clinically.'), M, 291); doc.text(`Page ${n}`, PW-M, 291, {align:'right'}); doc.setTextColor(20); };
+  // header
+  doc.setFillColor(14,124,116); doc.rect(0,0,PW,4,'F');
+  doc.setFont('helvetica','bold'); doc.setFontSize(17); doc.setTextColor(23,33,43); doc.text('Angular Soft-Tissue Analysis', M, 16);
+  doc.setFont('helvetica','normal'); doc.setFontSize(10); doc.setTextColor(90);
+  doc.text(pdfTxt(`Case: ${caseId}    Date: ${today}    Tolerance: ±${f1(tol)}°    Facing: ${facing>0?'right':'left'}`), M, 23);
+  doc.setDrawColor(210); doc.line(M,26,PW-M,26);
+  // photo
+  const ph=annotatedPhoto(); let pw=84, phh=pw*ph.h/ph.w; if(phh>118){ phh=118; pw=phh*ph.w/ph.h; }
+  doc.addImage(ph.url,'JPEG',M,31,pw,phh);
+  // diagnosis column
+  let x=M+pw+7, cw=PW-M-x, y=33;
+  doc.setTextColor(23,33,43); doc.setFont('helvetica','bold'); doc.setFontSize(8); doc.setTextColor(90); doc.text('DIAGNOSIS', x, y); y+=5;
+  const dev=$('verdict').classList.contains('dev'); doc.setTextColor(dev?178:14, dev?63:124, dev?44:116); doc.setFontSize(12.5);
+  doc.splitTextToSize(pdfTxt($('vHead').textContent), cw).forEach(l=>{ doc.text(l,x,y); y+=5.6; });
+  doc.setTextColor(60); doc.setFont('helvetica','normal'); doc.setFontSize(9);
+  y+=1; doc.splitTextToSize(pdfTxt($('vWhy').textContent), cw).forEach(l=>{ doc.text(l,x,y); y+=4.3; });
+  y+=3; doc.setFont('helvetica','bold'); doc.setFontSize(8); doc.setTextColor(90); doc.text('INDICATED TREATMENT', x, y); y+=5;
+  doc.setFont('helvetica','normal'); doc.setFontSize(9); doc.setTextColor(23,33,43);
+  [...$('vTx').querySelectorAll(':scope > div')].forEach(d=>{ const tag=d.querySelector('.tag').textContent, txt=d.querySelector('span:last-child').textContent;
+    doc.splitTextToSize(pdfTxt(`${tag}: ${txt}`), cw-4).forEach((l,i)=>{ doc.text((i?'  ':'• ')+l,x,y); y+=4.3; }); y+=1; });
+  y+=2; doc.setFont('helvetica','bold'); doc.setFontSize(8); doc.setTextColor(90); doc.text('DIAGNOSTIC KEY', x, y); y+=5;
+  doc.setFont('helvetica','normal'); doc.setFontSize(9); doc.setTextColor(23,33,43);
+  [...$('vSteps').querySelectorAll('.step')].forEach(st=>{ doc.text(pdfTxt(`${st.querySelector('.k').textContent}: ${st.querySelector('.v').textContent}  (${st.querySelector('.chip').textContent})`), x, y); y+=4.6; });
+  // angle table
+  y=Math.max(31+phh, y)+9;
+  doc.setFont('helvetica','bold'); doc.setFontSize(8); doc.setTextColor(90); doc.text('ANGLES FROM N (MEASURED VS PROPOSED IDEAL)', M, y); y+=3;
+  const cols=[M, M+22, M+118, M+140, M+158, M+172];
+  doc.setFillColor(238,242,242); doc.rect(M,y,CW,6,'F'); doc.setFontSize(8); doc.setTextColor(70);
+  ['Angle','Describes','Measured','Ideal','Diff','Status'].forEach((h,i)=>doc.text(h, cols[i]+(i>=2&&i<=4?14:0)-(i>=2&&i<=4?14:0)+1, y+4.2)); y+=6;
+  doc.setFont('helvetica','normal'); doc.setFontSize(8.5);
+  const rowsT=A.map(r=>[r.id, `${r.desc} (${r.cls==='mod'?'modifiable':r.cls==='emb'?'embedded':'composite'})`, `${f1(r.v)}°`, `${r.ideal}°`, sgn(r.v-r.ideal), statusText(r)]);
+  if (dors){ const m=dors.main, v=m.kind==='hump'?m.pct:-m.pct; rowsT.push(['Dorsum','Largest deviation from straight N-K line (% of N-K)', `${v>0?'+':v<0?'-':''}${f1(Math.abs(v))}%`, '0%', sgn(v), m.pct<=DTOL?'Straight':(m.kind==='hump'?'Hump':'Concave')]); }
+  rowsT.forEach((r,i)=>{ if(i%2){ doc.setFillColor(248,250,250); doc.rect(M,y,CW,5.6,'F'); }
+    const st=r[5]; doc.setTextColor(23,33,43);
+    r.forEach((c,j)=>{ if(j===5){ const ok=st==='Ideal'||st==='Straight', est=st==='Estimate'; doc.setTextColor(ok?14:est?120:178, ok?124:est?120:63, ok?116:est?120:44); }
+      const txt=pdfTxt(c); doc.text(j===1?doc.splitTextToSize(txt,94)[0]:txt, cols[j]+1, y+4); });
+    y+=5.6; });
+  foot(1);
+  // pages 2 and 3: both simulations (treatment plan, then all to ideal)
+  const prevMode=simMode;
+  const grab=(mode)=>{ simMode=mode; simulate(); const si=$('simImg');
+    return {src: si.getAttribute('src') ? si.src : null, ratio: si.naturalHeight/si.naturalWidth || 0.62, head:$('simHead').textContent,
+      comps:[...$('simComp').querySelectorAll('.chip')].map(c=>c.textContent), rows:[...$('simRows').querySelectorAll('tr')].map(tr=>[...tr.children].map(td=>td.textContent))}; };
+  const sims=[['Treatment plan','Only the components that deviate beyond the tolerance are corrected; balanced components are preserved.', grab('plan')],
+              ['All to ideal','Every landmark is placed exactly on its proposed ideal angle, and the dorsum on the straight N-K line.', grab('all')]];
+  simMode=prevMode; $('modePlan').setAttribute('aria-pressed', simMode==='plan'); $('modeAll').setAttribute('aria-pressed', simMode==='all'); simulate();
+  const loadRatio = src => new Promise(r=>{ if(!src) return r(0.62); const im=new Image(); im.onload=()=>r(im.naturalHeight/im.naturalWidth||0.62); im.onerror=()=>r(0.62); im.src=src; });
+  for (let si=0; si<sims.length; si++){
+    const [title, sub, d]=sims[si]; const pageNo=si+2; d.ratio=await loadRatio(d.src);
+    doc.addPage(); doc.setFillColor(14,124,116); doc.rect(0,0,PW,4,'F');
+    doc.setFont('helvetica','bold'); doc.setFontSize(14); doc.setTextColor(23,33,43); doc.text(pdfTxt(`Simulation ${si+1} of 2: ${title}`), M, 16);
+    doc.setFont('helvetica','normal'); doc.setFontSize(9.5); doc.setTextColor(90); doc.text(pdfTxt(`${caseId} · ${sub}`), M, 22);
+    y=27;
+    if (d.src){ let iw=CW, ih=iw*d.ratio; if(ih>150){ ih=150; iw=ih/d.ratio; } doc.addImage(d.src,'JPEG',M,y,iw,ih); y+=ih+8; }
+    else { doc.setTextColor(178,63,44); doc.text('Simulation not shown: the correction was too large, check the landmarks.', M, y+4); y+=12; }
+    doc.setFont('helvetica','bold'); doc.setFontSize(8); doc.setTextColor(90); doc.text('COMPONENTS', M, y); y+=5;
+    doc.setFont('helvetica','normal'); doc.setFontSize(9); doc.setTextColor(23,33,43);
+    doc.splitTextToSize(pdfTxt(d.comps.join('  ·  ')), CW).forEach(l=>{ doc.text(l,M,y); y+=4.5; });
+    if (d.rows.length){ y+=4; const c2=[M, M+40, M+75, M+110];
+      doc.setFillColor(238,242,242); doc.rect(M,y,120,6,'F'); doc.setFont('helvetica','bold'); doc.setFontSize(8); doc.setTextColor(70);
+      ['Angle','Before','After','Ideal'].forEach((h,i)=>doc.text(h,c2[i]+1,y+4.2)); y+=6; doc.setFont('helvetica','normal'); doc.setFontSize(8.5); doc.setTextColor(23,33,43);
+      d.rows.forEach((r,i)=>{ if(i%2){ doc.setFillColor(248,250,250); doc.rect(M,y,120,5.6,'F'); } r.forEach((c,j)=>doc.text(pdfTxt(c),c2[j]+1,y+4)); y+=5.6; }); }
+    y+=6; doc.setFontSize(8.5); doc.setTextColor(90);
+    doc.splitTextToSize('The photograph is warped locally so each corrected landmark sits on its target angle. This is a visual aid for planning and patient discussion, not a prediction of the surgical or orthodontic result.', CW).forEach(l=>{ doc.text(l,M,y); y+=4.2; });
+    foot(pageNo);
+  }
+  const fname=('Profile-analysis_'+caseId.replace(/[^\w\-]+/g,'-')+'_'+today+'.pdf');
+  if (!dlNS){
+    const blob=doc.output('blob'); const file=new File([blob], fname, {type:'application/pdf'});
+    try{ if (navigator.canShare && navigator.canShare({files:[file]})){ await navigator.share({files:[file], title:fname}); status(`Shared ${fname}.`); return; } }
+    catch(e){ if (e && e.name==='AbortError'){ status('Export cancelled.'); return; } }
+    const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=fname; document.body.appendChild(a); a.click(); a.remove(); setTimeout(()=>URL.revokeObjectURL(a.href),4000); status(`Saved ${fname}.`); return;
+  }
+  try{ const buf=doc.output('arraybuffer'); await dlNS.save({filename:fname, data:buf}); status(`Saved ${fname}.`); }
+  catch(e){ const c=e&&e.code; status(c==='declined'?'Export cancelled.':c==='rate_limited'?'A save prompt is already open.':'The PDF could not be saved here.', c==='declined'?'':'err'); }
+}
+$('pdfBtn').addEventListener('click', exportPdf);
+
+// ---------- study record ----------
+let rows=[];
+try{ rows=JSON.parse(localStorage.getItem('asta-rows')||'[]')||[]; }catch(e){ rows=[]; }
+function saveRows(){ try{ localStorage.setItem('asta-rows', JSON.stringify(rows)); }catch(e){} }
+function csvText(){
+  const head=['case_id','recorded','facing','CNK','CNK1','KNU','UNC','UNU1','KNL','LNC','LNU','LNU1','CNU1','chin_dev','nose_dev','upper_lip_dev','lower_lip_dev','dorsum_dev_pct','finding','K1_U1_confirmed',...ORDER.flatMap(k=>[k+'_x',k+'_y']),'image_w','image_h','tolerance'];
+  const q=v=>{ const s=String(v); return /[",\n]/.test(s)?'"'+s.replace(/"/g,'""')+'"':s; };
+  return [head.join(','), ...rows.map(r=>head.map(h=>q(r[h]??'')).join(','))].join('\n');
+}
+function renderRows(){
+  $('rows').innerHTML = rows.length ? rows.map(r=>`<tr><td>${esc(r.case_id)}</td><td class="num">${r.CNK}°</td><td class="num">${r.UNC}°</td><td class="num">${r.LNC}°</td><td>${esc(r.finding)}</td></tr>`).join('') : '<tr><td colspan="5" class="muted">No cases recorded yet. Analyze a photo, enter a case ID and add it.</td></tr>';
+  $('csv').value = csvText();
+}
+function esc(s){ return String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+$('addRow').addEventListener('click',()=>{
+  if(!pts) return;
+  const {t,A}=measure(); const D=diagnose(t); const g=id=>f1(A.find(a=>a.id===id).v);
+  const r={case_id: $('caseId').value.trim() || ('Case '+(rows.length+1)), recorded:new Date().toISOString().slice(0,16).replace('T',' '), facing: facing>0?'right':'left',
+    CNK:g('C–N–K'),CNK1:g('C–N–K1'),KNU:g('K–N–U'),UNC:g('U–N–C'),UNU1:g('U–N–U1'),KNL:g('K–N–L'),LNC:g('L–N–C'),LNU:g('L–N–U'),LNU1:g('L–N–U1'),CNU1:g('C–N–U1'),
+    chin_dev:f1(D.c),nose_dev:f1(D.n),upper_lip_dev:f1(D.u),lower_lip_dev:f1(D.l), dorsum_dev_pct: dors? f1(dors.main.kind==='hump'?dors.main.pct:-dors.main.pct):'', finding:$('vHead').textContent,
+    K1_U1_confirmed: (!pts.K1.est && !pts.U1.est) ? 'yes':'no', image_w:imgW, image_h:imgH, tolerance:tol};
+  ORDER.forEach(k=>{ r[k+'_x']=Math.round(pts[k].x*10)/10; r[k+'_y']=Math.round(pts[k].y*10)/10; });
+  rows.push(r); saveRows(); renderRows(); $('caseId').value='';
+  status(`Added “${r.case_id}” to the record (${rows.length} ${rows.length===1?'case':'cases'}).`);
+});
+$('copyCsv').addEventListener('click',()=>{
+  const t=csvText();
+  const fallback=()=>{ const ta=$('csv'); ta.focus(); ta.select(); status('Copy blocked here. The CSV below is selected: copy it with the system copy command.','warn'); };
+  try{ navigator.clipboard.writeText(t).then(()=>status(`Copied ${rows.length} ${rows.length===1?'row':'rows'} as CSV.`), fallback); }catch(e){ fallback(); }
+});
+$('clearRows').addEventListener('click',()=>{ if(!rows.length) return; $('rowCount2').textContent=rows.length; $('clearConfirm').hidden=false; });
+$('clearNo').addEventListener('click',()=>{ $('clearConfirm').hidden=true; });
+$('clearYes').addEventListener('click',()=>{ rows=[]; saveRows(); renderRows(); $('clearConfirm').hidden=true; status('Record cleared.'); });
+
+// ---------- interaction ----------
+function evtXY(e){ const r=cv.getBoundingClientRect(); return {x:e.clientX-r.left, y:e.clientY-r.top}; }
+function evtPt(e){ const q=evtXY(e); return {x:(q.x-vx)/kk(), y:(q.y-vy)/kk()}; }
+function hit(p){ let best=null, bd=Infinity; const lim=(28/kk()); ORDER.forEach(k=>{ if(!pts||!pts[k]) return; const d=Math.hypot(pts[k].x-p.x, pts[k].y-p.y); if(d<bd){bd=d;best=k;} }); return bd<=lim?best:null; }
+function clampPt(p){ return {x:Math.max(0,Math.min(imgW,p.x)), y:Math.max(0,Math.min(imgH,p.y))}; }
+const ptrs=new Map(); let pinch=null, pan=null, tap=null;
+function placeTap(p){
+  if (guided){
+    guided.pts.push(p); sel=null;
+    if (guided.pts.length===1){ pts={N:{...p,est:false}}; draw(); status('Now tap the most anterior point of the chin (C, soft-tissue pogonion).'); return; }
+    const [Np,Cp]=guided.pts; endGuided(); applyGuided(Np,Cp); return;
+  }
+  if (placing){ const k=placing.order[placing.i]; pts=pts||{}; pts[k]={...p, est:false}; placing.i++; sel=k;
+    if (placing.i>=placing.order.length){ placing=null; $('manual').setAttribute('aria-pressed','false'); $('placebar').hidden=true; status('All seven points placed. Drag any point to refine it.'); }
+    else updatePlaceBar();
+    draw(); if(pts.N&&pts.C&&pts.K&&pts.U&&pts.L&&pts.K1&&pts.U1) renderResults(); }
+}
+cv.addEventListener('pointerdown',e=>{
+  if(!img) return; e.preventDefault(); cv.setPointerCapture(e.pointerId);
+  ptrs.set(e.pointerId, evtXY(e));
+  if (ptrs.size===2){ // two fingers: pinch zoom + pan; cancel any single-finger action
+    if (dragging){ dragging=null; loupeAt=null; }
+    tap=null; pan=null;
+    const [p1,p2]=[...ptrs.values()]; pinch={d0:Math.hypot(p1.x-p2.x,p1.y-p2.y)||1, m0:{x:(p1.x+p2.x)/2,y:(p1.y+p2.y)/2}, z0:vz, vx0:vx, vy0:vy};
+    draw(); return;
+  }
+  if (ptrs.size>2) return;
+  const q=evtXY(e), p=clampPt(evtPt(e));
+  if (guided || placing){ tap={x:q.x,y:q.y,p}; return; }
+  const k=hit(p);
+  if (k){ dragging=k; sel=k; loupeAt=k; draw(); return; }
+  sel=null; pan={x:q.x,y:q.y,vx0:vx,vy0:vy}; draw();
+});
+let raf=0;
+cv.addEventListener('pointermove',e=>{
+  if (!ptrs.has(e.pointerId)){ if(img&&pts&&!placing&&!guided){ cv.style.cursor = hit(evtPt(e)) ? 'grab' : (vz>1?'move':'crosshair'); } return; }
+  const q=evtXY(e); ptrs.set(e.pointerId,q);
+  if (pinch && ptrs.size>=2){
+    const [p1,p2]=[...ptrs.values()]; const d=Math.hypot(p1.x-p2.x,p1.y-p2.y), m={x:(p1.x+p2.x)/2,y:(p1.y+p2.y)/2};
+    const ix=(pinch.m0.x-pinch.vx0)/(dispK*pinch.z0), iy=(pinch.m0.y-pinch.vy0)/(dispK*pinch.z0);
+    vz=Math.max(1,Math.min(8,pinch.z0*d/pinch.d0)); vx=m.x-ix*kk(); vy=m.y-iy*kk(); clampView();
+    if(!raf) raf=requestAnimationFrame(()=>{ raf=0; draw(); }); return;
+  }
+  if (tap && Math.hypot(q.x-tap.x,q.y-tap.y)>10){ pan={x:tap.x,y:tap.y,vx0:vx,vy0:vy}; tap=null; }
+  if (pan){ vx=pan.vx0+(q.x-pan.x); vy=pan.vy0+(q.y-pan.y); clampView(); if(!raf) raf=requestAnimationFrame(()=>{ raf=0; draw(); }); return; }
+  if (dragging){
+    const p=clampPt(evtPt(e)); pts[dragging].x=p.x; pts[dragging].y=p.y; pts[dragging].est=false; pts[dragging].manual=true;
+    if(!raf) raf=requestAnimationFrame(()=>{ raf=0; draw(); renderResults(); });
+  }
+});
+const endDrag=()=>{ if(!dragging) return; const k=dragging; dragging=null; loupeAt=null;
+  if ((k==='N'||k==='C') && !['K','U','L'].some(q=>pts[q].manual)){
+    const g=guidedDetect(img, pts.N, pts.C, facing);
+    if (g){ ['K','U','L','K1','U1'].forEach(q=>{ if(!pts[q].manual) pts[q]={x:g.pts[q].x,y:g.pts[q].y,est:!g.got[q]}; }); draw(); renderResults(); status(`${k} moved. Nose and lips re-traced from the new N–C axis.`); return; }
+  }
+  draw(); renderResults(); status(`${k} (${NAMES[k]}) moved. Results updated.`); };
+const onUp=e=>{
+  ptrs.delete(e.pointerId);
+  if (pinch){ if (ptrs.size<2){ pinch=null; if(ptrs.size===1){ const [p]=[...ptrs.values()]; pan={x:p.x,y:p.y,vx0:vx,vy0:vy}; } } return; }
+  if (tap && e.type==='pointerup'){ const t=tap; tap=null; placeTap(t.p); return; }
+  tap=null; pan=null; endDrag();
+};
+cv.addEventListener('pointerup',onUp); cv.addEventListener('pointercancel',onUp);
+cv.addEventListener('wheel',e=>{ if(!img) return; e.preventDefault(); const q=evtXY(e); zoomAt(vz*Math.exp(-e.deltaY*0.0015), q.x, q.y); },{passive:false});
+function zoomBtn(f){ const W=imgW*dispK, H=imgH*dispK; if(f===0){ vz=1; vx=0; vy=0; draw(); } else zoomAt(vz*f, W/2, H/2); }
+cv.addEventListener('keydown',e=>{
+  if(!pts) return;
+  if(e.key==='Tab') return;
+  if(/^[1-7]$/.test(e.key)){ sel=ORDER[+e.key-1]; draw(); status(`Selected ${sel}. Arrow keys move it (Shift for 10 px).`); e.preventDefault(); return; }
+  if(!sel) return; const st=e.shiftKey?10:1; const m={ArrowLeft:[-st,0],ArrowRight:[st,0],ArrowUp:[0,-st],ArrowDown:[0,st]}[e.key];
+  if(m){ pts[sel].x+=m[0]; pts[sel].y+=m[1]; pts[sel].est=false; draw(); renderResults(); e.preventDefault(); }
+});
+
+function setFacing(f, rerun){
+  facing=f; $('faceR').setAttribute('aria-pressed', f>0); $('faceL').setAttribute('aria-pressed', f<0);
+  if (rerun) runDetect(true); else { draw(); renderResults(); }
+}
+$('faceR').addEventListener('click',()=>setFacing(1,true));
+$('faceL').addEventListener('click',()=>setFacing(-1,true));
+$('redetect').addEventListener('click',()=>runDetect(false));
+let guided=null;
+function endGuided(){ guided=null; $('guided').setAttribute('aria-pressed','false'); }
+$('guided').addEventListener('click',()=>{
+  if(!img) return;
+  if (guided){ endGuided(); status('Cancelled.'); runDetect(false); return; }
+  placing=null; $('manual').setAttribute('aria-pressed','false'); $('placebar').hidden=true;
+  startGuided('Tap soft-tissue nasion (N): the deepest point of the nasal bridge. Then tap the chin point (C). The tool traces the nose and lips between them.');
+});
+function startGuided(msg){
+  placing=null; $('manual').setAttribute('aria-pressed','false'); $('placebar').hidden=true;
+  guided={pts:[]}; pts=null; sel=null; $('guided').setAttribute('aria-pressed','true'); draw();
+  $('vHead').textContent='Waiting for N and C'; $('vWhy').textContent=''; $('vTx').innerHTML=''; $('vSteps').innerHTML='';
+  status(msg,'warn');
+}
+function applyGuided(Np,Cp){
+  const r=guidedDetect(img, Np, Cp, 0);
+  if(!r){ pts={N:{...Np,est:false},C:{...Cp,est:false}};
+    const nc=Math.hypot(Cp.x-Np.x,Cp.y-Np.y), a={x:(Cp.x-Np.x)/nc,y:(Cp.y-Np.y)/nc}, b={x:facing*a.y,y:-facing*a.x};
+    const P=(deg,dist)=>{ const t=deg*Math.PI/180; return {x:Np.x+(a.x*Math.cos(t)+b.x*Math.sin(t))*dist, y:Np.y+(a.y*Math.cos(t)+b.y*Math.sin(t))*dist, est:true}; };
+    pts.K=P(30,nc*.46); pts.U=P(8,nc*.67); pts.L=P(4,nc*.81); pts.K1=P(-10,nc*.49); pts.U1=P(-10,nc*.72);
+    draw(); renderResults(); status('The profile edge next to the face could not be separated from the background. Points were placed at the ideal angles as a start: drag each onto the face.','err'); return; }
+  facing=r.side; $('faceR').setAttribute('aria-pressed', facing>0); $('faceL').setAttribute('aria-pressed', facing<0);
+  pts={}; ORDER.forEach(k=>pts[k]={x:r.pts[k].x,y:r.pts[k].y,est:!r.got[k]});
+  draw(); renderResults();
+  const miss=['U','L'].filter(k=>!r.got[k]);
+  status(miss.length ? `Found the nose tip. ${miss.join(' and ')} need placing by hand: drag the dashed points onto the lips.` : 'Nose tip and lips found along the N–C axis. Check K1 and U1 (dashed estimates) and drag them onto the alar base and lip commissure.', 'warn');
+}
+$('sample').addEventListener('click',loadSample);
+$('zIn').addEventListener('click',()=>zoomBtn(1.5)); $('zOut').addEventListener('click',()=>zoomBtn(1/1.5)); $('zFit').addEventListener('click',()=>zoomBtn(0));
+function updatePlaceBar(){
+  const b=$('placebar'); b.hidden=false;
+  b.innerHTML = placing.order.map((k,i)=>`<span class="chip ${i<placing.i?'c-ok':i===placing.i?'c-mild':'c-est'}">${k}</span>`).join('') + `<span class="hint">Tap <b>${placing.order[placing.i]}</b>: ${NAMES[placing.order[placing.i]]}</span>`;
+  status(`Tap the ${NAMES[placing.order[placing.i]].toLowerCase()} (${placing.order[placing.i]}).`);
+}
+$('manual').addEventListener('click',()=>{
+  if (placing){ placing=null; $('manual').setAttribute('aria-pressed','false'); $('placebar').hidden=true; status('Placement cancelled.'); if(!pts||ORDER.some(k=>!pts[k])) runDetect(false); return; }
+  endGuided(); placing={order:ORDER.slice(), i:0}; pts={}; sel=null; $('manual').setAttribute('aria-pressed','true'); updatePlaceBar(); draw();
+});
+
+function runDetect(keepFacing){
+  if(!img) return;
+  placing=null; $('manual').setAttribute('aria-pressed','false'); $('placebar').hidden=true;
+  const r = detect(img, keepFacing ? facing : 0);
+  if (!r){
+    pts=null; status('Automatic detection could not find the profile. Use “Tap N + C”: tap nasion and chin, and the tool finds the nose and lips.','err');
+    $('vHead').textContent='Waiting for landmarks'; $('vWhy').textContent=''; $('vTx').innerHTML=''; $('vSteps').innerHTML=''; $('tbody').innerHTML=''; $('map').innerHTML='';
+    draw(); return;
+  }
+  facing=r.side; $('faceR').setAttribute('aria-pressed', facing>0); $('faceL').setAttribute('aria-pressed', facing<0);
+  pts={}; ORDER.forEach(k=>{ pts[k]={x:r.pts[k].x, y:r.pts[k].y, est: !r.got[k]}; });
+  if (r.got.C){ const g=guidedDetect(img, r.pts.N, r.pts.C, r.side); if (g && g.got.U && g.got.L){ ['K','U','L','K1','U1'].forEach(k=>{ pts[k]={x:g.pts[k].x,y:g.pts[k].y,est:!g.got[k]}; }); } }
+  const missing=['U','L','C'].filter(k=>!r.got[k]);
+  const tk=theta(pts.K), tu=theta(pts.U), tl=theta(pts.L);
+  const axTilt=Math.abs(Math.atan2(pts.C.x-pts.N.x, pts.C.y-pts.N.y)*180/Math.PI);
+  const plausible = !missing.length && tk>14 && tk<52 && tu>-8 && tu<26 && tl>-12 && tl<26 && pts.C.y>pts.N.y && axTilt<35;
+  if (!plausible && !isSample){ startGuided('The automatic result did not look right for this photo (busy background or unusual framing). Tap soft-tissue nasion (N), then the chin point (C): the tool will trace the nose and lips from there.'); return; }
+  sel=null; draw(); renderResults();
+  if (missing.length) status(`Detected N and K. ${missing.join(', ')} could not be found and were placed from proportions; drag them into place. K1 and U1 are estimates.`,'warn');
+  else status(`Landmarks detected${isSample?' on the sample illustration':''}. If any point is off, drag it, or use “Tap N + C” for a more reliable detection. K1 and U1 are estimates.`,'warn');
+}
+// automatic enhancement on upload: resample, auto levels, edge sharpening (geometry unchanged)
+function enhanceImage(im){
+  const iw=im.naturalWidth, ih=im.naturalHeight, mx=Math.max(iw,ih);
+  const s = mx<1600 ? Math.min(3, 2000/mx) : (mx>2600 ? 2600/mx : 1);
+  const w=Math.round(iw*s), h=Math.round(ih*s);
+  // stepwise high-quality resampling
+  let src=im, cw=iw, ch=ih;
+  while (true){
+    const nw = s>1 ? Math.min(w, Math.round(cw*1.5)) : Math.max(w, Math.round(cw/2)), nh = Math.round(nw*ih/iw);
+    const c=document.createElement('canvas'); c.width=nw; c.height=nh; const g=c.getContext('2d'); g.imageSmoothingEnabled=true; g.imageSmoothingQuality='high'; g.drawImage(src,0,0,nw,nh);
+    src=c; cw=nw; ch=nh; if (nw===w) break;
+  }
+  const g=src.getContext('2d',{willReadFrequently:true}); const id=g.getImageData(0,0,w,h), d=id.data, N=w*h;
+  // auto levels on luminance (0.5–99.5 percentile), same mapping for all channels to keep skin colour
+  const hist=new Uint32Array(256); for(let i=0;i<d.length;i+=4) hist[(d[i]*0.299+d[i+1]*0.587+d[i+2]*0.114)|0]++;
+  let lo=0, hi=255, acc=0; for(let v=0;v<256;v++){ acc+=hist[v]; if(acc>N*0.005){ lo=v; break; } } acc=0; for(let v=255;v>=0;v--){ acc+=hist[v]; if(acc>N*0.005){ hi=v; break; } }
+  const span=Math.max(40, hi-lo), gain=Math.min(1.6, 255/span), off=lo;
+  // unsharp mask on a box-blurred copy
+  const r = Math.max(1, Math.round(s>1 ? s : 1));
+  const lum=new Float32Array(N); for(let i=0,p=0;p<N;p++,i+=4) lum[p]=d[i]*0.299+d[i+1]*0.587+d[i+2]*0.114;
+  const tmp=new Float32Array(N), bl=new Float32Array(N);
+  for(let y=0;y<h;y++){ let acc2=0, cnt=0; for(let x=-r;x<w;x++){ if(x+r<w){acc2+=lum[y*w+x+r];cnt++;} if(x-r-1>=0){acc2-=lum[y*w+x-r-1];cnt--;} if(x>=0) tmp[y*w+x]=acc2/cnt; } }
+  for(let x=0;x<w;x++){ let acc2=0, cnt=0; for(let y=-r;y<h;y++){ if(y+r<h){acc2+=tmp[(y+r)*w+x];cnt++;} if(y-r-1>=0){acc2-=tmp[(y-r-1)*w+x];cnt--;} if(y>=0) bl[y*w+x]=acc2/cnt; } }
+  const amt = s>1.3 ? 0.9 : 0.6;
+  for(let i=0,p=0;p<N;p++,i+=4){ let dl=lum[p]-bl[p]; if(Math.abs(dl)<2) dl=0; const add=amt*dl;
+    for(let c=0;c<3;c++){ let v=(d[i+c]-off)*gain + add; d[i+c]= v<0?0:v>255?255:v; } }
+  g.putImageData(id,0,0);
+  return {url: src.toDataURL('image/jpeg',0.93), scale:s, gain};
+}
+function loadImage(src, sample){
+  const im=new Image();
+  const start=(use)=>{ img=use; imgW=use.naturalWidth; imgH=use.naturalHeight; isSample=sample; imPrep=null; dorsKey=''; dors=null; layoutCanvas(); runDetect(false);
+    if (!sample && enhInfo){ const t=$('statusText').textContent; status(`Photo enhanced (${enhInfo.scale>1.05?'upscaled ×'+f1(enhInfo.scale)+', ':''}contrast and edge sharpness improved). ${t}`, $('status').classList.contains('err')?'err':'warn'); } };
+  im.onload=()=>{
+    if (sample){ enhInfo=null; start(im); return; }
+    status('Enhancing the photo…');
+    setTimeout(()=>{ let e=null; try{ e=enhanceImage(im); }catch(err){ e=null; }
+      if(!e){ enhInfo=null; start(im); return; }
+      const im2=new Image(); im2.onload=()=>{ enhInfo=e; start(im2); }; im2.onerror=()=>{ enhInfo=null; start(im); }; im2.src=e.url; }, 30);
+  };
+  im.onerror=()=>status('This file could not be opened as an image. Try a JPEG or PNG.','err');
+  im.src=src;
+}
+function loadSample(){ loadImage(makeSample(), true); }
+function loadFile(file){
+  if(!file || !/^image\//.test(file.type)) { status('Choose an image file (JPEG, PNG or HEIC exported as JPEG).','err'); return; }
+  const url=URL.createObjectURL(file); loadImage(url,false);
+}
+$('file').addEventListener('change',e=>{ loadFile(e.target.files[0]); e.target.value=''; });
+const stage=$('stage');
+['dragenter','dragover'].forEach(ev=>stage.addEventListener(ev,e=>{ e.preventDefault(); stage.classList.add('drag'); }));
+['dragleave','drop'].forEach(ev=>stage.addEventListener(ev,e=>{ e.preventDefault(); stage.classList.remove('drag'); }));
+stage.addEventListener('drop',e=>{ const f=e.dataTransfer&&e.dataTransfer.files[0]; if(f) loadFile(f); });
+window.addEventListener('paste',e=>{ const it=[...(e.clipboardData?.items||[])].find(i=>i.type.startsWith('image/')); if(it) loadFile(it.getAsFile()); });
+$('tol').addEventListener('input',e=>{ tol=+e.target.value; $('tolOut').textContent='±'+f1(tol)+'°'; renderResults(); });
+let rt=0; window.addEventListener('resize',()=>{ clearTimeout(rt); rt=setTimeout(layoutCanvas,120); });
+if (window.matchMedia) window.matchMedia('(prefers-color-scheme: dark)').addEventListener?.('change',()=>renderResults());
+new MutationObserver(()=>renderResults()).observe(document.documentElement,{attributes:true,attributeFilter:['data-theme']});
+
+renderRows();
+loadSample();
+window.__asta = {enhanceImage, exportPdf, setDl:(d)=>{dlNS=d;}, prepImage, axisProfile, guidedDetect, simulate, planTargets, detect, measure, diagnose, get pts(){return pts;}, get facing(){return facing;}, loadImage, makeSample, setTol:v=>{tol=v;}};
+})();
+</script>
+
+<script>
+if ('serviceWorker' in navigator) { window.addEventListener('load', () => { navigator.serviceWorker.register('sw.js').catch(()=>{}); }); }
+</script>
+</body>
+</html>
