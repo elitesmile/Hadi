@@ -70,6 +70,21 @@ button[aria-pressed="true"]{background:var(--teal-soft);border-color:var(--teal)
 .zoombar{position:absolute;right:16px;bottom:16px;display:flex;gap:4px;z-index:2}
 .zoombar button{background:rgba(255,255,255,.92);color:#17212b;border-color:rgba(0,0,0,.15);min-width:36px;justify-content:center;padding:6px 10px;font-size:15px}
 .stage.drag{outline:2px dashed var(--teal);outline-offset:-6px}
+.nudge{position:absolute;left:16px;top:16px;z-index:3;width:172px;background:rgba(30,34,38,.94);border:1.5px solid rgba(255,255,255,.85);border-radius:14px;padding:10px 12px 12px;color:#fff;box-shadow:0 6px 22px rgba(0,0,0,.35);touch-action:none}
+.nudge[hidden]{display:none}
+.nudge .nh{display:flex;align-items:center;justify-content:space-between;cursor:move;margin:0 0 6px;font-weight:600;font-size:14px}
+.nudge .grip{opacity:.55;font-size:13px;letter-spacing:1px}
+.nudge label{display:block;font-weight:600;font-size:13px;margin:4px 0 6px}
+.nudge select{width:100%;font:inherit;font-size:15px;padding:8px 10px;border-radius:9px;border:1px solid rgba(0,0,0,.2);background:#fff;color:#17212b}
+.nudge .pad{display:grid;grid-template-columns:repeat(3,44px);grid-template-rows:repeat(3,44px);gap:4px;justify-content:center;margin:8px 0 6px}
+.nudge .pad button{width:44px;height:44px;border-radius:50%;padding:0;justify-content:center;background:#fff;color:#17212b;border:1px solid rgba(0,0,0,.2);font-size:18px;touch-action:none}
+.nudge .pad button:active{background:var(--teal-soft)}
+.nudge .pad .up{grid-column:2;grid-row:1}.nudge .pad .lt{grid-column:1;grid-row:2}.nudge .pad .rt{grid-column:3;grid-row:2}.nudge .pad .dn{grid-column:2;grid-row:3}
+.nudge .pad .mid{grid-column:2;grid-row:2;display:flex;align-items:center;justify-content:center;font-size:11px;opacity:.75;text-align:center;line-height:1.1}
+.nudge .stepseg{display:flex;gap:4px;margin:2px 0 8px}
+.nudge .stepseg button{flex:1;justify-content:center;padding:5px 0;font-size:12px;background:rgba(255,255,255,.12);color:#fff;border-color:rgba(255,255,255,.35)}
+.nudge .stepseg button[aria-pressed="true"]{background:#fff;color:#17212b;border-color:#fff}
+.nudge .close{width:100%;justify-content:center;background:#fff;color:#17212b;border-color:rgba(0,0,0,.2);padding:8px 0;font-size:14px}
 canvas#view{display:block;touch-action:none;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none;border-radius:6px;cursor:crosshair;max-width:100%}
 .status{font-size:13px;color:var(--muted);display:flex;gap:8px;align-items:flex-start;min-height:22px}
 .status .dot{width:8px;height:8px;border-radius:50%;background:var(--teal);margin-top:6px;flex:none}
@@ -161,10 +176,26 @@ textarea#csv{width:100%;min-height:90px;font-family:var(--mono);font-size:11px;c
         <button id="redetect" type="button" hidden>Auto-detect</button>
         <button id="manual" type="button" aria-pressed="false" hidden>Place points</button>
         <button id="sample" type="button" hidden>Sample</button>
+        <button id="nudgeBtn" type="button" aria-pressed="false" aria-controls="nudge">Fine adjust</button>
         <button id="pdfBtn" type="button" class="primary-soft" hidden>Export PDF</button>
       </div>
       <div class="stage" id="stage">
         <div class="zoombar" role="group" aria-label="Photo zoom"><button id="zOut" type="button" aria-label="Zoom out">−</button><button id="zIn" type="button" aria-label="Zoom in">+</button><button id="zFit" type="button">Fit</button></div>
+        <div class="nudge" id="nudge" role="dialog" aria-label="Fine adjust landmark" hidden>
+          <div class="nh" id="nudgeHead"><span>Fine adjust</span><span class="grip" aria-hidden="true">⋮⋮</span></div>
+          <label for="nudgeSel">1. Select landmark</label>
+          <select id="nudgeSel"><option value="">— Select —</option></select>
+          <label style="margin-top:10px">2. Adjust position</label>
+          <div class="stepseg" role="group" aria-label="Step size"><button type="button" data-step="0.5" aria-pressed="true">Fine</button><button type="button" data-step="2" aria-pressed="false">Normal</button><button type="button" data-step="8" aria-pressed="false">Large</button></div>
+          <div class="pad">
+            <button type="button" class="up" data-d="0,-1" aria-label="Move up">&#8963;</button>
+            <button type="button" class="lt" data-d="-1,0" aria-label="Move left">&#8249;</button>
+            <span class="mid" id="nudgeMid"></span>
+            <button type="button" class="rt" data-d="1,0" aria-label="Move right">&#8250;</button>
+            <button type="button" class="dn" data-d="0,1" aria-label="Move down">&#8964;</button>
+          </div>
+          <button type="button" class="close" id="nudgeClose">Close</button>
+        </div>
         <canvas id="view" tabindex="0" aria-label="Profile photograph with landmarks. Drag a landmark to move it; arrow keys nudge the selected landmark."></canvas>
       </div>
       <div class="status" id="status" role="status"><span class="dot"></span><span id="statusText">Loading…</span></div>
@@ -646,6 +677,7 @@ function zoomAt(z, cxp, cyp){ const ix=(cxp-vx)/kk(), iy=(cyp-vy)/kk(); vz=z; cl
 function toScreen(p){ return {x:p.x*kk()+vx, y:p.y*kk()+vy}; }
 function draw(){
   if (!img) return;
+  syncNudge();
   ctx.setTransform(dpr,0,0,dpr,0,0);
   const W=imgW*dispK, H=imgH*dispK;
   ctx.clearRect(0,0,W,H);
@@ -1152,6 +1184,28 @@ const onUp=e=>{
 cv.addEventListener('pointerup',onUp); cv.addEventListener('pointercancel',onUp);
 cv.addEventListener('wheel',e=>{ if(!img) return; e.preventDefault(); const q=evtXY(e); zoomAt(vz*Math.exp(-e.deltaY*0.0015), q.x, q.y); },{passive:false});
 function zoomBtn(f){ const W=imgW*dispK, H=imgH*dispK; if(f===0){ vz=1; vx=0; vy=0; draw(); } else zoomAt(vz*f, W/2, H/2); }
+// ---------- fine-adjust panel (touch-friendly nudging) ----------
+let nudgeStep=0.5, nudgeTimer=0, nudgeRep=0;
+$('nudgeSel').innerHTML='<option value="">— Select —</option>'+ORDER.map(k=>`<option value="${k}">${k} · ${({N:'Nasion',K:'Nose tip',K1:'Alar base',U:'Upper lip',U1:'Commissure',L:'Lower lip',C:'Chin'})[k]}</option>`).join('');
+function syncNudge(){ const s=$('nudgeSel'); if (s && s.value!==(sel||'')) s.value=sel||''; const m=$('nudgeMid'); if(m) m.textContent=sel||''; }
+function openNudge(on){ $('nudge').hidden=!on; $('nudgeBtn').setAttribute('aria-pressed', on); if(on && !sel && pts){ sel='K'; } draw(); if(on) status('Fine adjust: pick a landmark, then tap or hold the arrows. Zoom in for even finer steps.'); }
+$('nudgeBtn').addEventListener('click',()=>openNudge($('nudge').hidden));
+$('nudgeClose').addEventListener('click',()=>openNudge(false));
+$('nudgeSel').addEventListener('change',e=>{ sel=e.target.value||null; draw(); });
+$('nudge').querySelectorAll('.stepseg button').forEach(b=>b.addEventListener('click',()=>{ nudgeStep=+b.dataset.step; $('nudge').querySelectorAll('.stepseg button').forEach(x=>x.setAttribute('aria-pressed', x===b)); }));
+function nudgeOnce(dx,dy){ if(!pts||!sel||!pts[sel]) return; const st=nudgeStep/(dispK*vz); // step in screen px, so zooming in gives finer moves
+  const p=clampPt({x:pts[sel].x+dx*st, y:pts[sel].y+dy*st}); pts[sel].x=p.x; pts[sel].y=p.y; pts[sel].est=false; pts[sel].manual=true; draw(); }
+function nudgeStop(){ clearTimeout(nudgeTimer); clearInterval(nudgeRep); nudgeTimer=0; nudgeRep=0; if(pts&&sel){ renderResults(); status(`${sel} (${NAMES[sel]}) adjusted. Results updated.`); } }
+$('nudge').querySelectorAll('.pad button').forEach(b=>{ const [dx,dy]=b.dataset.d.split(',').map(Number);
+  b.addEventListener('pointerdown',e=>{ e.preventDefault(); if(!sel){ status('Select a landmark first.','warn'); return; } b.setPointerCapture(e.pointerId); nudgeOnce(dx,dy);
+    nudgeTimer=setTimeout(()=>{ nudgeRep=setInterval(()=>nudgeOnce(dx,dy), 45); }, 380); });
+  ['pointerup','pointercancel','lostpointercapture'].forEach(t=>b.addEventListener(t,()=>{ if(nudgeTimer||nudgeRep) nudgeStop(); }));
+  b.addEventListener('keydown',e=>{ if(e.key==='Enter'||e.key===' '){ e.preventDefault(); nudgeOnce(dx,dy); renderResults(); } }); });
+// the panel can be dragged by its title so it never hides the part of the face being adjusted
+(()=>{ const P=$('nudge'), H=$('nudgeHead'); let d=null;
+  H.addEventListener('pointerdown',e=>{ e.preventDefault(); H.setPointerCapture(e.pointerId); d={x:e.clientX,y:e.clientY,l:P.offsetLeft,t:P.offsetTop}; });
+  H.addEventListener('pointermove',e=>{ if(!d) return; const st=$('stage'); const l=Math.max(0,Math.min(st.clientWidth-P.offsetWidth, d.l+e.clientX-d.x)), t=Math.max(0,Math.min(st.clientHeight-P.offsetHeight, d.t+e.clientY-d.y)); P.style.left=l+'px'; P.style.top=t+'px'; });
+  ['pointerup','pointercancel'].forEach(t=>H.addEventListener(t,()=>{ d=null; })); })();
 cv.addEventListener('keydown',e=>{
   if(!pts) return;
   if(e.key==='Tab') return;
