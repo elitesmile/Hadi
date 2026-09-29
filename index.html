@@ -70,7 +70,7 @@ button[aria-pressed="true"]{background:var(--teal-soft);border-color:var(--teal)
 .zoombar{position:absolute;right:16px;bottom:16px;display:flex;gap:4px;z-index:2}
 .zoombar button{background:rgba(255,255,255,.92);color:#17212b;border-color:rgba(0,0,0,.15);min-width:36px;justify-content:center;padding:6px 10px;font-size:15px}
 .stage.drag{outline:2px dashed var(--teal);outline-offset:-6px}
-.nudge{position:absolute;left:16px;top:16px;z-index:3;width:172px;background:rgba(30,34,38,.94);border:1.5px solid rgba(255,255,255,.85);border-radius:14px;padding:10px 12px 12px;color:#fff;box-shadow:0 6px 22px rgba(0,0,0,.35);touch-action:none}
+.nudge{position:absolute;left:16px;bottom:16px;z-index:3;width:172px;background:rgba(30,34,38,.94);border:1.5px solid rgba(255,255,255,.85);border-radius:14px;padding:10px 12px 12px;color:#fff;box-shadow:0 6px 22px rgba(0,0,0,.35);touch-action:none}
 .nudge[hidden]{display:none}
 .nudge .nh{display:flex;align-items:center;justify-content:space-between;cursor:move;margin:0 0 6px;font-weight:600;font-size:14px}
 .nudge .grip{opacity:.55;font-size:13px;letter-spacing:1px}
@@ -711,6 +711,7 @@ function draw(){
   ORDER.forEach(k=>{ if(pts[k]) drawPoint(k); });
   drawPlacing();
   if (dragging && loupeAt) drawLoupe(loupeAt);
+  else if (nudgeOpen() && sel && pts && pts[sel]) drawLoupe(sel);   // magnifier stays up while fine-adjusting
 }
 function line(a,b,col,w,dash){ ctx.beginPath(); ctx.moveTo(a.x,a.y); ctx.lineTo(b.x,b.y); ctx.strokeStyle=col; ctx.lineWidth=w; ctx.setLineDash(dash); ctx.stroke(); ctx.setLineDash([]); }
 function pill(text,x,y,col){
@@ -1188,7 +1189,12 @@ function zoomBtn(f){ const W=imgW*dispK, H=imgH*dispK; if(f===0){ vz=1; vx=0; vy
 let nudgeStep=0.5, nudgeTimer=0, nudgeRep=0;
 $('nudgeSel').innerHTML='<option value="">— Select —</option>'+ORDER.map(k=>`<option value="${k}">${k} · ${({N:'Nasion',K:'Nose tip',K1:'Alar base',U:'Upper lip',U1:'Commissure',L:'Lower lip',C:'Chin'})[k]}</option>`).join('');
 function syncNudge(){ const s=$('nudgeSel'); if (s && s.value!==(sel||'')) s.value=sel||''; const m=$('nudgeMid'); if(m) m.textContent=sel||''; }
-function openNudge(on){ $('nudge').hidden=!on; $('nudgeBtn').setAttribute('aria-pressed', on); if(on && !sel && pts){ sel='K'; } draw(); if(on) status('Fine adjust: pick a landmark, then tap or hold the arrows. Zoom in for even finer steps.'); }
+function nudgeOpen(){ const n=$('nudge'); return !!n && !n.hidden; }
+let nudgeMoved=false;
+function placeNudge(){ // same side as the magnifier (behind the head), but below it so neither covers the other
+  if (nudgeMoved) return; const P=$('nudge'); P.style.top=''; P.style.left=''; P.style.right=''; P.style.bottom='';
+  if (facing>0){ P.style.left='16px'; P.style.bottom='16px'; } else { P.style.right='16px'; P.style.bottom='64px'; } }
+function openNudge(on){ if(on) placeNudge(); $('nudge').hidden=!on; $('nudgeBtn').setAttribute('aria-pressed', on); if(on && !sel && pts){ sel='K'; } draw(); if(on) status('Fine adjust: pick a landmark, then tap or hold the arrows. Zoom in for even finer steps.'); }
 $('nudgeBtn').addEventListener('click',()=>openNudge($('nudge').hidden));
 $('nudgeClose').addEventListener('click',()=>openNudge(false));
 $('nudgeSel').addEventListener('change',e=>{ sel=e.target.value||null; draw(); });
@@ -1203,7 +1209,7 @@ $('nudge').querySelectorAll('.pad button').forEach(b=>{ const [dx,dy]=b.dataset.
   b.addEventListener('keydown',e=>{ if(e.key==='Enter'||e.key===' '){ e.preventDefault(); nudgeOnce(dx,dy); renderResults(); } }); });
 // the panel can be dragged by its title so it never hides the part of the face being adjusted
 (()=>{ const P=$('nudge'), H=$('nudgeHead'); let d=null;
-  H.addEventListener('pointerdown',e=>{ e.preventDefault(); H.setPointerCapture(e.pointerId); d={x:e.clientX,y:e.clientY,l:P.offsetLeft,t:P.offsetTop}; });
+  H.addEventListener('pointerdown',e=>{ e.preventDefault(); H.setPointerCapture(e.pointerId); d={x:e.clientX,y:e.clientY,l:P.offsetLeft,t:P.offsetTop}; nudgeMoved=true; P.style.right=''; P.style.bottom=''; });
   H.addEventListener('pointermove',e=>{ if(!d) return; const st=$('stage'); const l=Math.max(0,Math.min(st.clientWidth-P.offsetWidth, d.l+e.clientX-d.x)), t=Math.max(0,Math.min(st.clientHeight-P.offsetHeight, d.t+e.clientY-d.y)); P.style.left=l+'px'; P.style.top=t+'px'; });
   ['pointerup','pointercancel'].forEach(t=>H.addEventListener(t,()=>{ d=null; })); })();
 cv.addEventListener('keydown',e=>{
