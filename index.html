@@ -635,13 +635,14 @@ function measure(){
   const A = [
     {g:'Nose', id:'C–N–K', v:t.K, ideal:30, desc:'Free (projecting) nose relative to chin', cls:'mod'},
     {g:'Nose', id:'C–N–K1', v:-t.K1, ideal:10, desc:'Embedded nose relative to chin', cls:'emb', est:'K1'},
+    {g:'Nose', id:'K1–N–K', v:t.K-t.K1, ideal:40, desc:'Nose volume', cls:'com', est:'K1'},
     {g:'Upper lip', id:'K–N–U', v:t.K-t.U, ideal:22, desc:'Upper lip relative to nose', cls:'mod'},
     {g:'Upper lip', id:'U–N–C', v:t.U, ideal:8, desc:'Free upper lip relative to chin', cls:'mod'},
-    {g:'Upper lip', id:'U–N–U1', v:t.U-t.U1, ideal:18, desc:'Upper-lip volume', cls:'com', est:'U1'},
+    {g:'Upper lip', id:'U1–N–U', v:t.U-t.U1, ideal:18, desc:'Upper-lip volume', cls:'com', est:'U1'},
     {g:'Lower lip', id:'K–N–L', v:t.K-t.L, ideal:26, desc:'Lower lip relative to nose', cls:'mod'},
     {g:'Lower lip', id:'L–N–C', v:t.L, ideal:4, desc:'Free lower lip relative to chin', cls:'mod'},
     {g:'Lower lip', id:'L–N–U', v:t.U-t.L, ideal:4, desc:'Lower lip relative to upper lip', cls:'mod'},
-    {g:'Lower lip', id:'L–N–U1', v:t.L-t.U1, ideal:14, desc:'Lower-lip volume', cls:'com', est:'U1'},
+    {g:'Lower lip', id:'U1–N–L', v:t.L-t.U1, ideal:14, desc:'Lower-lip volume', cls:'com', est:'U1'},
     {g:'Lips', id:'C–N–U1', v:-t.U1, ideal:10, desc:'Embedded lips relative to chin', cls:'emb', est:'U1'},
   ];
   return {t, A};
@@ -703,6 +704,23 @@ function draw(){
     const am=(aC+aK)/2, lx=N.x+Math.cos(am)*(r+22), ly=N.y+Math.sin(am)*(r+22);
     pill(f1(theta(pts.K))+'°', lx, ly, '#0e7c74');
   }
+  // volume angles: K1–N–K, U1–N–U, U1–N–L. Each arc sits at its own radius (between the landmarks) and the labels
+  // go on the cheek side of the arcs, stacked so they never overlap each other, with a short leader to the arc.
+  { const dn=k=>{ const q=toScreen(pts[k]); return Math.hypot(q.x-N.x,q.y-N.y); }, col='#a86a12', side=facing>0?1:-1, labs=[];
+    const volArc=(k0,k1,r)=>{ const A0=toScreen(pts[k0]), A1=toScreen(pts[k1]);
+      const a0=Math.atan2(A0.y-N.y,A0.x-N.x), a1=Math.atan2(A1.y-N.y,A1.x-N.x); let d=a1-a0; while(d>Math.PI) d-=2*Math.PI; while(d<-Math.PI) d+=2*Math.PI;
+      [['rgba(255,255,255,.9)',4.2],[col,2]].forEach(([c,w])=>{ ctx.beginPath(); ctx.arc(N.x,N.y,r,a0,a1,d<0); ctx.strokeStyle=c; ctx.lineWidth=w; ctx.setLineDash([]); ctx.stroke(); });
+      labs.push({ex:N.x+Math.cos(a0)*r, ey:N.y+Math.sin(a0)*r, y:N.y+Math.sin(a0)*r, txt:`${k0}–N–${k1} ${f1(Math.abs(d)*180/Math.PI)}°`}); };
+    if (pts.K1&&pts.K) volArc('K1','K', 0.72*Math.min(dn('K1'),dn('K')));
+    if (pts.U1&&pts.U&&pts.K1) volArc('U1','U', (Math.max(dn('K1'),dn('K'))*0.35+dn('U')*0.65));
+    if (pts.U1&&pts.L&&pts.U) volArc('U1','L', (dn('U')+dn('L'))/2);
+    labs.sort((a,b)=>a.y-b.y); for(let i=1;i<labs.length;i++) if(labs[i].y<labs[i-1].y+24) labs[i].y=labs[i-1].y+24;
+    ctx.font='600 12px "IBM Plex Sans", system-ui, sans-serif';
+    // one column of labels, just behind the most posterior embedded point (K1 / U1) and its name tag
+    const bx=[pts.K1,pts.U1].filter(Boolean).map(p=>toScreen(p).x), colX = side>0 ? Math.min(...bx)-66 : Math.max(...bx)+66;
+    labs.forEach(l=>{ const w=ctx.measureText(l.txt).width, lx=colX - side*w/2;
+      line({x:l.ex,y:l.ey},{x:lx+side*(w/2+6),y:l.y},'rgba(255,255,255,.85)',2.6,[]); line({x:l.ex,y:l.ey},{x:lx+side*(w/2+6),y:l.y},col,1.2,[]);
+      pill(l.txt, lx, l.y, col); }); }
   computeDorsum();
   if (dors && dors.path.length>2){
     ctx.beginPath(); dors.path.forEach((p,i)=>{ const q=toScreen(p); i?ctx.lineTo(q.x,q.y):ctx.moveTo(q.x,q.y); });
@@ -1093,7 +1111,7 @@ let rows=[];
 try{ rows=JSON.parse(localStorage.getItem('asta-rows')||'[]')||[]; }catch(e){ rows=[]; }
 function saveRows(){ try{ localStorage.setItem('asta-rows', JSON.stringify(rows)); }catch(e){} }
 function csvText(){
-  const head=['case_id','recorded','facing','CNK','CNK1','KNU','UNC','UNU1','KNL','LNC','LNU','LNU1','CNU1','chin_dev','nose_dev','upper_lip_dev','lower_lip_dev','dorsum_dev_pct','finding','K1_U1_confirmed',...ORDER.flatMap(k=>[k+'_x',k+'_y']),'image_w','image_h','tolerance'];
+  const head=['case_id','recorded','facing','CNK','CNK1','K1NK','KNU','UNC','UNU1','KNL','LNC','LNU','LNU1','CNU1','chin_dev','nose_dev','upper_lip_dev','lower_lip_dev','dorsum_dev_pct','finding','K1_U1_confirmed',...ORDER.flatMap(k=>[k+'_x',k+'_y']),'image_w','image_h','tolerance'];
   const q=v=>{ const s=String(v); return /[",\n]/.test(s)?'"'+s.replace(/"/g,'""')+'"':s; };
   return [head.join(','), ...rows.map(r=>head.map(h=>q(r[h]??'')).join(','))].join('\n');
 }
@@ -1106,7 +1124,7 @@ $('addRow').addEventListener('click',()=>{
   if(!pts) return;
   const {t,A}=measure(); const D=diagnose(t); const g=id=>f1(A.find(a=>a.id===id).v);
   const r={case_id: $('caseId').value.trim() || ('Case '+(rows.length+1)), recorded:new Date().toISOString().slice(0,16).replace('T',' '), facing: facing>0?'right':'left',
-    CNK:g('C–N–K'),CNK1:g('C–N–K1'),KNU:g('K–N–U'),UNC:g('U–N–C'),UNU1:g('U–N–U1'),KNL:g('K–N–L'),LNC:g('L–N–C'),LNU:g('L–N–U'),LNU1:g('L–N–U1'),CNU1:g('C–N–U1'),
+    CNK:g('C–N–K'),CNK1:g('C–N–K1'),K1NK:g('K1–N–K'),KNU:g('K–N–U'),UNC:g('U–N–C'),UNU1:g('U1–N–U'),KNL:g('K–N–L'),LNC:g('L–N–C'),LNU:g('L–N–U'),LNU1:g('U1–N–L'),CNU1:g('C–N–U1'),
     chin_dev:f1(D.c),nose_dev:f1(D.n),upper_lip_dev:f1(D.u),lower_lip_dev:f1(D.l), dorsum_dev_pct: dors? f1(dors.main.kind==='hump'?dors.main.pct:-dors.main.pct):'', finding:$('vHead').textContent,
     K1_U1_confirmed: (!pts.K1.est && !pts.U1.est) ? 'yes':'no', image_w:imgW, image_h:imgH, tolerance:tol};
   ORDER.forEach(k=>{ r[k+'_x']=Math.round(pts[k].x*10)/10; r[k+'_y']=Math.round(pts[k].y*10)/10; });
