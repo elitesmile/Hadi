@@ -84,6 +84,7 @@ button[aria-pressed="true"]{background:var(--teal-soft);border-color:var(--teal)
 .nudge .stepseg{display:flex;gap:4px;margin:2px 0 8px}
 .nudge .stepseg button{flex:1;justify-content:center;padding:5px 0;font-size:12px;background:rgba(255,255,255,.12);color:#fff;border-color:rgba(255,255,255,.35)}
 .nudge .stepseg button[aria-pressed="true"]{background:#fff;color:#17212b;border-color:#fff}
+.nudge .nloupe{display:block;width:148px;height:148px;margin:2px auto 6px;border-radius:50%;border:3px solid #fff;background:#000}
 .nudge .close{width:100%;justify-content:center;background:#fff;color:#17212b;border-color:rgba(0,0,0,.2);padding:8px 0;font-size:14px}
 canvas#view{display:block;touch-action:none;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none;border-radius:6px;cursor:crosshair;max-width:100%}
 .status{font-size:13px;color:var(--muted);display:flex;gap:8px;align-items:flex-start;min-height:22px}
@@ -183,6 +184,7 @@ textarea#csv{width:100%;min-height:90px;font-family:var(--mono);font-size:11px;c
         <div class="zoombar" role="group" aria-label="Photo zoom"><button id="zOut" type="button" aria-label="Zoom out">−</button><button id="zIn" type="button" aria-label="Zoom in">+</button><button id="zFit" type="button">Fit</button></div>
         <div class="nudge" id="nudge" role="dialog" aria-label="Fine adjust landmark" hidden>
           <div class="nh" id="nudgeHead"><span>Fine adjust</span><span class="grip" aria-hidden="true">⋮⋮</span></div>
+          <canvas id="nudgeLoupe" class="nloupe" width="148" height="148" aria-label="Magnified view of the selected landmark"></canvas>
           <label for="nudgeSel">1. Select landmark</label>
           <select id="nudgeSel"><option value="">— Select —</option></select>
           <label style="margin-top:10px">2. Adjust position</label>
@@ -711,7 +713,7 @@ function draw(){
   ORDER.forEach(k=>{ if(pts[k]) drawPoint(k); });
   drawPlacing();
   if (dragging && loupeAt) drawLoupe(loupeAt);
-  else if (nudgeOpen() && sel && pts && pts[sel]) drawLoupe(sel);   // magnifier stays up while fine-adjusting
+  drawNudgeLoupe();   // magnifier inside the Fine adjust panel, always visible while it is open
 }
 function line(a,b,col,w,dash){ ctx.beginPath(); ctx.moveTo(a.x,a.y); ctx.lineTo(b.x,b.y); ctx.strokeStyle=col; ctx.lineWidth=w; ctx.setLineDash(dash); ctx.stroke(); ctx.setLineDash([]); }
 function pill(text,x,y,col){
@@ -1189,6 +1191,17 @@ function zoomBtn(f){ const W=imgW*dispK, H=imgH*dispK; if(f===0){ vz=1; vx=0; vy
 let nudgeStep=0.5, nudgeTimer=0, nudgeRep=0;
 $('nudgeSel').innerHTML='<option value="">— Select —</option>'+ORDER.map(k=>`<option value="${k}">${k} · ${({N:'Nasion',K:'Nose tip',K1:'Alar base',U:'Upper lip',U1:'Commissure',L:'Lower lip',C:'Chin'})[k]}</option>`).join('');
 function syncNudge(){ const s=$('nudgeSel'); if (s && s.value!==(sel||'')) s.value=sel||''; const m=$('nudgeMid'); if(m) m.textContent=sel||''; }
+function drawNudgeLoupe(){
+  const L=$('nudgeLoupe'); if(!L || !nudgeOpen()) return; const g=L.getContext('2d'), S=148, R=S/2, Z=4;
+  if (L.width!==S*dpr){ L.width=S*dpr; L.height=S*dpr; }
+  g.setTransform(dpr,0,0,dpr,0,0); g.fillStyle='#000'; g.fillRect(0,0,S,S);
+  if (!img || !pts || !sel || !pts[sel]){ g.fillStyle='rgba(255,255,255,.7)'; g.font='12px system-ui'; g.textAlign='center'; g.fillText('Select a landmark',R,R+4); return; }
+  const p=pts[sel], span=S/(Z*kk());  // image px shown across the lens: 4x the current on-screen size
+  g.imageSmoothingQuality='high'; g.drawImage(img, p.x-span/2, p.y-span/2, span, span, 0, 0, S, S);
+  g.strokeStyle='rgba(255,255,255,.9)'; g.lineWidth=1; g.beginPath(); g.moveTo(0,R); g.lineTo(S,R); g.moveTo(R,0); g.lineTo(R,S); g.stroke();
+  g.beginPath(); g.arc(R,R,5,0,Math.PI*2); g.strokeStyle=COL[sel]; g.lineWidth=2; g.stroke();
+  g.beginPath(); g.arc(R,R,2,0,Math.PI*2); g.fillStyle='#fff'; g.fill();
+}
 function nudgeOpen(){ const n=$('nudge'); return !!n && !n.hidden; }
 let nudgeMoved=false;
 function placeNudge(){ // same side as the magnifier (behind the head), but below it so neither covers the other
