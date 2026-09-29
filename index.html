@@ -864,30 +864,40 @@ function warpImage(T, extra, chin, refine){
   const ub0=-Math.max(0.42, 0.2+3*dm), ub1=-0.12;     // fade toward the back of the jaw
   const chinW=(x,y)=>{ if(!hasChin) return 0; const dx=x-Ns.x, dy=y-Ns.y, t=(dx*ua.x+dy*ua.y)/NC, u=(dx*ub.x+dy*ub.y)/NC;
     return ss(tL+0.02,t1,t)*(1-ss(tb,te,t))*ss(ub0,ub1,u); };
+  // nose block: the whole nose (bridge, tip, lobule, columella) is sheared as one piece about its base line N–K1.
+  // Each pixel moves by the tip displacement scaled by its height above the base line, so the tip lands on the
+  // target angle while the alar base, subnasale and lip stay put and the tip keeps its own shape (no pinching, no smear).
+  const nose=(()=>{ const K1s={x:pts.K1.x*sc,y:pts.K1.y*sc}, Ks={x:pts.K.x*sc,y:pts.K.y*sc}, Kt={x:T.K.x*sc,y:T.K.y*sc};
+    const dK={x:Kt.x-Ks.x, y:Kt.y-Ks.y}; if (Math.hypot(dK.x,dK.y)<0.3) return null;
+    const ex=K1s.x-Ns.x, ey=K1s.y-Ns.y, eL=Math.hypot(ex,ey)||1, e={x:ex/eL,y:ey/eL}, nb={x:facing*e.y,y:-facing*e.x};
+    const hK=(Kt.x-Ns.x)*nb.x+(Kt.y-Ns.y)*nb.y; if (hK<4) return null;
+    const ax=Kt.x-Ns.x, ay=Kt.y-Ns.y, aL=Math.hypot(ax,ay)||1, a={x:ax/aL,y:ay/aL};
+    const bK=((Kt.x-Ns.x)*e.x+(Kt.y-Ns.y)*e.y)/eL;
+    return { at:(x,y)=>{ const px=x-Ns.x, py=y-Ns.y, d=px*nb.x+py*nb.y; if (d<=0) return null;
+        const lam=Math.min(1,d/hK), s=(px*a.x+py*a.y)/aL, b=(px*e.x+py*e.y)/eL;
+        const mu=ss(-0.15,0.06,b)*(1-ss(Math.max(bK,1)+0.05,Math.max(bK,1)+0.4,b))*(1-ss(1.05,1.6,s));
+        const k=lam*mu; return k<1e-3 ? null : {x:dK.x*k, y:dK.y*k}; } }; })();
+  const noseAt=(x,y)=>{ const v=nose&&nose.at(x,y); return v||{x:0,y:0}; };
   const RAD={N:0.15,K:0.24,K1:0.15,U:0.13,U1:0.15,L:0.13,C:0.2};
-  const ctrl=ORDER.map(k=>{ const x=T[k].x*sc, y=T[k].y*sc, w=chinW(x,y); return {x, y, r:RAD[k], dx:(T[k].x-pts[k].x)*sc - w*cd.x, dy:(T[k].y-pts[k].y)*sc - w*cd.y}; });
-  (extra||[]).forEach(e=>{ const x=e.tx*sc, y=e.ty*sc, w=chinW(x,y); ctrl.push({x, y, r:0.11, dx:(e.tx-e.sx)*sc - w*cd.x, dy:(e.ty-e.sy)*sc - w*cd.y}); });
+  const ctrl=ORDER.map(k=>{ const x=T[k].x*sc, y=T[k].y*sc, w=chinW(x,y), nv=noseAt(x,y); return {x, y, r:RAD[k], dx:(T[k].x-pts[k].x)*sc - w*cd.x - nv.x, dy:(T[k].y-pts[k].y)*sc - w*cd.y - nv.y}; });
+  (extra||[]).forEach(e=>{ const x=e.tx*sc, y=e.ty*sc, w=chinW(x,y), nv=noseAt(x,y); ctrl.push({x, y, r:0.11, dx:(e.tx-e.sx)*sc - w*cd.x - nv.x, dy:(e.ty-e.sy)*sc - w*cd.y - nv.y}); });
   const maxD=Math.max(...ctrl.map(c=>Math.hypot(c.dx,c.dy)));
-  if (maxD<0.5 && !hasChin && !refine) return {src, out};
+  if (maxD<0.5 && !hasChin && !nose) return {src, out};
   const nk=Math.hypot(pts.K.x-pts.N.x, pts.K.y-pts.N.y)*sc, sig=Math.max(6, nk*((extra&&extra.length)?0.2:0.3)), s2=2*sig*sig;
   // bounded blending (no overshoot): each control pulls with its own radius; weights are capped so the result never exceeds the requested moves
   const n=ctrl.length; ctrl.forEach(c=>{ const sgm=Math.max(5, nk*c.r); c.s2=2*sgm*sgm; });
   const moving=ctrl.filter(c=>Math.hypot(c.dx,c.dy)>0.3), pad=nk*0.24*3.2;
   let x0=0,x1=w-1,y0=0,y1=h-1;
-  if (!hasChin && moving.length){ x0=Math.max(0,Math.floor(Math.min(...moving.map(c=>c.x))-pad)); x1=Math.min(w-1,Math.ceil(Math.max(...moving.map(c=>c.x))+pad));
-    y0=Math.max(0,Math.floor(Math.min(...moving.map(c=>c.y))-pad)); y1=Math.min(h-1,Math.ceil(Math.max(...moving.map(c=>c.y))+pad)); }
+  if (!hasChin && (moving.length||nose)){ const xs=moving.map(c=>c.x), ys=moving.map(c=>c.y);
+    if (nose){ [pts.N,pts.K,pts.K1,T.K].forEach(p=>{ xs.push(p.x*sc); ys.push(p.y*sc); }); }
+    x0=Math.max(0,Math.floor(Math.min(...xs)-pad)); x1=Math.min(w-1,Math.ceil(Math.max(...xs)+pad));
+    y0=Math.max(0,Math.floor(Math.min(...ys)-pad)); y1=Math.min(h-1,Math.ceil(Math.max(...ys)+pad)); }
   const sd=sg.getImageData(0,0,w,h).data, od=og.getImageData(0,0,w,h), o=od.data;
-  // tip refinement: pinch the rounded lobule toward the nasal axis (K1 -> new K) so the tip reads defined, not bulbous
-  const tip = refine ? (()=>{ const Kx=T.K.x*sc, Ky=T.K.y*sc, bx=T.K.x-pts.K1.x, by=T.K.y-pts.K1.y, bl=Math.hypot(bx,by)||1;
-      const nkS=Math.hypot(T.K.x-pts.N.x,T.K.y-pts.N.y)*sc; return {x:Kx, y:Ky, tx:bx/bl, ty:by/bl, rho:Math.max(8,0.17*nkS), a:0.34}; })() : null;
-  if (tip){ x0=Math.max(0,Math.min(x0,Math.floor(tip.x-tip.rho*3))); x1=Math.min(w-1,Math.max(x1,Math.ceil(tip.x+tip.rho*3))); y0=Math.max(0,Math.min(y0,Math.floor(tip.y-tip.rho*3))); y1=Math.min(h-1,Math.max(y1,Math.ceil(tip.y+tip.rho*3))); }
   const edgeM=Math.max(24, 0.07*Math.min(w,h));
   for(let y=y0;y<=y1;y++){ for(let x=x0;x<=x1;x++){
-    let qx=x, qy=y;
-    if (tip){ const vx=x-tip.x, vy=y-tip.y, u=vx*tip.tx+vy*tip.ty; if (u<0){ const wx=vx-u*tip.tx, wy=vy-u*tip.ty, r2=(vx*vx+vy*vy)/(tip.rho*tip.rho);
-        const k=1-tip.a*Math.exp(-r2)*Math.min(1,-u/(0.35*tip.rho)); qx=tip.x+u*tip.tx+wx/k; qy=tip.y+u*tip.ty+wy/k; } }
-    const cw=chinW(qx,qy); let fx=cw*cd.x, fy=cw*cd.y; let sw=0, gx=0, gy=0; for(let i=0;i<n;i++){ const c=ctrl[i], g=Math.exp(-((qx-c.x)**2+(qy-c.y)**2)/c.s2); sw+=g; gx+=c.dx*g; gy+=c.dy*g; } const nm=Math.max(1,sw); fx+=gx/nm; fy+=gy/nm;
-    fx+=x-qx; fy+=y-qy;
+    const cw=chinW(x,y); let fx=cw*cd.x, fy=cw*cd.y;
+    if (nose){ const nv=nose.at(x,y); if (nv){ fx+=nv.x; fy+=nv.y; } }
+    let sw=0, gx=0, gy=0; for(let i=0;i<n;i++){ const c=ctrl[i], g=Math.exp(-((x-c.x)**2+(y-c.y)**2)/c.s2); sw+=g; gx+=c.dx*g; gy+=c.dy*g; } const nm=Math.max(1,sw); fx+=gx/nm; fy+=gy/nm;
     if (Math.abs(fx)<0.02 && Math.abs(fy)<0.02) continue;
     { const bd=Math.min(x,y,w-1-x,h-1-y), q=Math.max(0,Math.min(1,bd/edgeM)), fb=q*q*(3-2*q); fx*=fb; fy*=fb; }
     if (Math.abs(fx)<0.02 && Math.abs(fy)<0.02) continue;
@@ -926,7 +936,6 @@ function simulate(){
   // components + table
   const lbl=[]; const ch=(on,txt)=>lbl.push(`<span class="chip ${on?'c-bad':'c-ok'}">${txt}</span>`);
   ch(move.nose, move.nose ? (D.n>0?'Nose reduced':'Nose augmented') : 'Nose unchanged');
-  if (move.nose||move.dorsum) ch(true,'Tip refined');
   if (move.dorsum) ch(true, dors.main.kind==='hump'?'Dorsal hump reduced':'Dorsum augmented'); else ch(false,'Dorsum unchanged');
   ch(move.chin, move.chin ? (D.c>0?'Chin advanced':'Chin set back') : 'Chin unchanged');
   ch(move.U, move.U ? (D.u>0?'Upper lip retracted':'Upper lip advanced') : 'Upper lip unchanged');
@@ -1279,7 +1288,7 @@ new MutationObserver(()=>renderResults()).observe(document.documentElement,{attr
 
 renderRows();
 loadSample();
-window.__asta = {enhanceImage, exportPdf, setDl:(d)=>{dlNS=d;}, prepImage, axisProfile, guidedDetect, simulate, planTargets, detect, measure, diagnose, get pts(){return pts;}, get facing(){return facing;}, loadImage, makeSample, setTol:v=>{tol=v;}};
+window.__asta = {enhanceImage, exportPdf, setDl:(d)=>{dlNS=d;}, prepImage, axisProfile, guidedDetect, simulate, planTargets, detect, measure, diagnose, get pts(){return pts;}, get facing(){return facing;}, get imgW(){return imgW;}, setPts:(P)=>{ pts={}; for(const k in P) pts[k]={x:P[k].x,y:P[k].y,est:false,manual:true}; dorsKey=''; syncFacing(); draw(); renderResults(); simulate(); }, loadImage, makeSample, setTol:v=>{tol=v;}};
 })();
 </script>
 
