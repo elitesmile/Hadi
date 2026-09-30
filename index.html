@@ -982,14 +982,14 @@ function simulate(){
   $('simImg').src = cv2.toDataURL('image/jpeg', 0.9);
   // components + table
   const lbl=[]; const ch=(on,txt)=>lbl.push(`<span class="chip ${on?'c-bad':'c-ok'}">${txt}</span>`);
-  ch(move.nose, move.nose ? (D.n>0?'Nose reduced':'Nose augmented') : 'Nose unchanged');
+  ch(move.nose, move.nose ? (D.n>0?'Nose reduced (tip T moved back)':'Nose augmented (tip T moved forward)') : 'Nose unchanged');
   ch(move.chin, move.chin ? (D.c>0?'Chin advanced':'Chin set back') : 'Chin unchanged');
   ch(move.U, move.U ? (D.u>0?'Upper lip retracted':'Upper lip advanced') : 'Upper lip unchanged');
   ch(move.L, move.L ? (D.l>0?'Lower lip retracted':'Lower lip advanced') : 'Lower lip unchanged');
   $('simComp').innerHTML=lbl.join('');
   const b = k=>theta(pts[k]), a = k=>thetaIn(T[k], T.N, T.C);
-  const rowsS=[['C–N–K',b('K'),a('K'),30],['K–N–U',b('K')-b('U'),a('K')-a('U'),22],['U–N–C',b('U'),a('U'),8],['K–N–L',b('K')-b('L'),a('K')-a('L'),26],['L–N–C',b('L'),a('L'),4],['L–N–U',b('U')-b('L'),a('U')-a('L'),4]];
-  $('simRows').innerHTML=rowsS.map(([id,bv,av,iv])=>`<tr><td class="ang">${id}</td><td class="num">${f1(bv)}°</td><td class="num">${f1(av)}°</td><td class="num">${iv}°</td></tr>`).join('');
+  const rowsS=[['C–N–K',b('K'),a('K'),30],['C–N–T (tip)',b('T'),a('T'),null],['K–N–U',b('K')-b('U'),a('K')-a('U'),22],['U–N–C',b('U'),a('U'),8],['K–N–L',b('K')-b('L'),a('K')-a('L'),26],['L–N–C',b('L'),a('L'),4],['L–N–U',b('U')-b('L'),a('U')-a('L'),4]];
+  $('simRows').innerHTML=rowsS.map(([id,bv,av,iv])=>`<tr><td class="ang">${id}</td><td class="num">${f1(bv)}°</td><td class="num">${f1(av)}°</td><td class="num">${iv==null?'—':iv+'°'}</td></tr>`).join('');
   const anyMove = move.nose||move.chin||move.U||move.L;
   $('simHead').textContent = anyMove ? 'Profile after correction to the ideal angles' : 'No correction needed: the profile is already balanced';
 }
