@@ -1473,7 +1473,7 @@ let greenJob=0;
 async function applyGreen(){
   if (isSample || !origImg) return;
   const job=++greenJob, src=origImg;
-  if (!greenOn){ if (img!==origImg){ img=origImg; draw(); } return; }
+  if (!greenOn){ if (img!==origImg){ img=origImg; draw(); if(pts) simulate(); } return; }
   status('Preparing the green background…');
   let url=null, how='';
   let why='';
@@ -1483,7 +1483,7 @@ async function applyGreen(){
     if (r==='busy') why+='; the room behind the face is too busy for the offline colour method'; else if (r){ url=r; how='colour'; } }
   if (job!==greenJob || src!==origImg) return;
   if (!url){ status(`Green background not applied: ${why||'the backdrop could not be separated from the face safely'}. Connect to the internet and tap Green background to retry.`,'warn'); return; }
-  const g=new Image(); g.onload=()=>{ if(!greenOn || job!==greenJob) return; img=g; draw();
+  const g=new Image(); g.onload=()=>{ if(!greenOn || job!==greenJob) return; img=g; draw(); if(pts) simulate();
     status(how==='colour' ? `Green background applied (offline colour mode${why?': '+why:''}). If any part of the face turned green, switch it off with the Green background button.` : 'Green background applied (AI person model). Measurements always use the original photo.'); };
   g.src=url;
 }
