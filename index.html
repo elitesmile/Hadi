@@ -1377,6 +1377,9 @@ function greenBackground(im, side, P){ /* side: +1 face looks right (backdrop on
     C=C.map((c,k)=>acc[k][3]? [acc[k][0]/acc[k][3],acc[k][1]/acc[k][3],acc[k][2]/acc[k][3]] : c); }
   const cl=C.map((c,k)=>{ let m=0,cnt=0; seeds.forEach((p,j)=>{ if(lab[j]===k){ m+=Math.sqrt((Lb[p]-c[0])**2+(Ab[p]-c[1])**2+(Bb[p]-c[2])**2); cnt++; } }); return {c, share:cnt/seeds.length, T:Math.max(9, Math.min(18, 2.4*(cnt?m/cnt:0)+5))}; }).filter(o=>o.share>=0.08);
   const isBg=p=>{ for(const o of cl){ const c=o.c; if((Lb[p]-c[0])**2+(Ab[p]-c[1])**2+(Bb[p]-c[2])**2 < o.T*o.T) return true; } return false; };
+  // colour mode is only for a plain backdrop: a busy room (furniture, blinds, objects) is left to the person model
+  { let cov=0; seeds.forEach(p=>{ if(isBg(p)) cov++; }); cov/=seeds.length; const Tm=cl.reduce((t,o)=>t+o.T,0)/Math.max(1,cl.length);
+    if (!cl.length || cov<0.97 || Tm>=17) return 'busy'; }
   // flood fill from the seeds through backdrop-coloured pixels (so nothing inside the face can be reached)
   // edge barrier: the fill never crosses a clear luminance edge (the forehead against a light wall still has one)
   const gr=new Uint8Array(n); for(let p=w;p<n-w;p++){ const x=p%w; if(x<1||x>w-2) continue; const gx=Lb[p+1]-Lb[p-1], gy=Lb[p+w]-Lb[p-w]; if(gx*gx+gy*gy>14*14) gr[p]=1; }
@@ -1403,6 +1406,11 @@ function greenBackground(im, side, P){ /* side: +1 face looks right (backdrop on
     const dil=maxf(m,2,1); const inv=new Uint8Array(n); for(let p=0;p<n;p++) inv[p]=dil[p]?0:1;
     const ero=maxf(inv,2,1); for(let p=0;p<n;p++) m[p]=ero[p]?0:1;
     const d1=maxf(m,1,1); for(let p=0;p<n;p++) m[p]=d1[p]; }
+  { // open the foreground (cuts thin bridges to objects touching the face), keep the person, then restore its own edge
+    const fg=new Uint8Array(n); for(let p=0;p<n;p++) fg[p]=m[p]?0:1;
+    const R=Math.max(3,Math.round(Math.min(w,h)*0.006)), er=maxf(m,R,1), op=new Uint8Array(n); for(let p=0;p<n;p++) op[p]=er[p]?0:1;
+    const opD=maxf(op,R,1); if (keepLargest(opD,w,h)<0.08) return null;
+    const keep=maxf(opD,R+1,1); for(let p=0;p<n;p++) m[p]=(fg[p]&&keep[p])?0:1; }
   // soft edge: blur the mask a little, then composite at full resolution
   const a=new Float32Array(n); for(let p=0;p<n;p++) a[p]=m[p];
   const box=(src,r)=>{ const t=new Float32Array(n), o=new Float32Array(n);
@@ -1412,6 +1420,14 @@ function greenBackground(im, side, P){ /* side: +1 face looks right (backdrop on
   const al=box(box(a,1),1);
   return composeGreen(im, al, w, h);
 }
+// keep only the largest connected foreground region (the person); every other object in the room becomes backdrop
+function keepLargest(fg, w, h){ const n=w*h, lab=new Int32Array(n), q=new Int32Array(n); let best=0, bestN=0, id=0;
+  for(let s0=0;s0<n;s0++){ if(!fg[s0]||lab[s0]) continue; id++; let qh=0, qt=0; q[qt++]=s0; lab[s0]=id;
+    while(qh<qt){ const p=q[qh++], x=p%w; const nb=[x>0?p-1:-1, x<w-1?p+1:-1, p-w, p+w];
+      for(const r of nb){ if(r>=0&&r<n&&fg[r]&&!lab[r]){ lab[r]=id; q[qt++]=r; } } }
+    if(qt>bestN){ bestN=qt; best=id; } }
+  for(let p=0;p<n;p++) if(fg[p] && lab[p]!==best) fg[p]=0;
+  return bestN/n; }
 // alpha (1 = backdrop) at working size w×h → full-resolution photo with a green backdrop
 function composeGreen(im, al, w, h){
   const W=im.naturalWidth, H=im.naturalHeight, n=w*h;
@@ -1450,6 +1466,7 @@ function greenFromMask(im, M){
   const bv=[]; for(let x=0;x<w;x+=2){ bv.push(P[x]); } for(let y=0;y<h;y+=2){ bv.push(P[y*w]); bv.push(P[y*w+w-1]); } bv.sort((a,b)=>a-b);
   if (bv[bv.length>>1]>0.5) for(let p=0;p<n;p++) P[p]=1-P[p];      // now P = person
   let fr=0; for(let p=0;p<n;p++) fr+=P[p]>0.5; fr/=n; if (fr<0.08 || fr>0.95) return null;
+  { const fg=new Uint8Array(n); for(let p=0;p<n;p++) fg[p]=P[p]>0.5?1:0; keepLargest(fg,w,h); for(let p=0;p<n;p++) if(!fg[p] && P[p]>0.5) P[p]=0; }
   const box=(src,r)=>{ const t=new Float32Array(n), o=new Float32Array(n);
     for(let y=0;y<h;y++){ let s2=0,c2=0; for(let x=-r;x<w;x++){ if(x+r<w){s2+=src[y*w+x+r];c2++;} if(x-r-1>=0){s2-=src[y*w+x-r-1];c2--;} if(x>=0) t[y*w+x]=s2/c2; } }
     for(let x=0;x<w;x++){ let s2=0,c2=0; for(let y=-r;y<h;y++){ if(y+r<h){s2+=t[(y+r)*w+x];c2++;} if(y-r-1>=0){s2-=t[(y-r-1)*w+x];c2--;} if(y>=0) o[y*w+x]=s2/c2; } }
@@ -1468,15 +1485,19 @@ async function applyGreen(){
   if (!greenOn){ if (img!==origImg){ img=origImg; draw(); } return; }
   status('Preparing the green background…');
   let url=null, how='';
-  try{ const M=await personMask(src); if (job!==greenJob) return; url=greenFromMask(src, M); if(url) how='person model'; }catch(e){ url=null; }
-  if (!url){ try{ url=greenBackground(src, pts?facing:0, pts); if(url) how='colour'; }catch(e){ url=null; } }
+  let why='';
+  try{ const M=await personMask(src); if (job!==greenJob) return; url=greenFromMask(src, M); if(url) how='person model'; else why='the model did not find one clear person'; }
+  catch(e){ url=null; why='AI model not loaded ('+((e&&e.message)||e||'unknown error').toString().slice(0,90)+')'; }
+  if (!url){ let r=null; try{ r=greenBackground(src, pts?facing:0, pts); }catch(e){ r=null; }
+    if (r==='busy') why+='; the room behind the face is too busy for the offline colour method'; else if (r){ url=r; how='colour'; } }
   if (job!==greenJob || src!==origImg) return;
-  if (!url){ status('Green background skipped: the backdrop could not be separated from the face safely on this photo. Use the Green background button to try again when online.','warn'); return; }
+  if (!url){ status(`Green background not applied: ${why||'the backdrop could not be separated from the face safely'}. Connect to the internet and tap Green background to retry.`,'warn'); return; }
   const g=new Image(); g.onload=()=>{ if(!greenOn || job!==greenJob) return; img=g; draw();
-    status(how==='colour' ? 'Green background applied (offline mode, colour-based). If any part of the face turned green, switch it off with the Green background button.' : 'Green background applied. Measurements always use the original photo.'); };
+    status(how==='colour' ? `Green background applied (offline colour mode${why?': '+why:''}). If any part of the face turned green, switch it off with the Green background button.` : 'Green background applied (AI person model). Measurements always use the original photo.'); };
   g.src=url;
 }
-$('greenBtn').addEventListener('click',()=>{ greenOn=!greenOn; $('greenBtn').setAttribute('aria-pressed', greenOn); if(!greenOn) greenJob++; applyGreen(); });
+$('greenBtn').addEventListener('click',()=>{ if (greenOn && img===origImg && !isSample){ applyGreen(); return; }   // on but not applied yet: retry
+  greenOn=!greenOn; $('greenBtn').setAttribute('aria-pressed', greenOn); if(!greenOn) greenJob++; applyGreen(); });
 function loadImage(src, sample){
   const im=new Image();
   const start=(use)=>{ img=use; origImg=use; imgW=use.naturalWidth; imgH=use.naturalHeight; isSample=sample; imPrep=null; dorsKey=''; dors=null; layoutCanvas(); runDetect(false); applyGreen();
