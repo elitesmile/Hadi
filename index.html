@@ -177,6 +177,7 @@ textarea#csv{width:100%;min-height:90px;font-family:var(--mono);font-size:11px;c
         <button id="redetect" type="button" hidden>Auto-detect</button>
         <button id="manual" type="button" aria-pressed="false" hidden>Place points</button>
         <button id="sample" type="button" hidden>Sample</button>
+        <button id="greenBtn" type="button" aria-pressed="true" title="Replace the photo background with plain green">Green background</button>
         <button id="nudgeBtn" type="button" aria-pressed="false" aria-controls="nudge">Fine adjust</button>
         <button id="pdfBtn" type="button" class="primary-soft" hidden>Export PDF</button>
       </div>
@@ -1347,9 +1348,86 @@ function enhanceImage(im){
   g.putImageData(id,0,0);
   return {url: src.toDataURL('image/jpeg',0.93), scale:s, gain};
 }
+// ---------- plain green background behind the face ----------
+const GREEN=[34,160,90];
+let greenOn=true, origImg=null;
+function greenBackground(im, side, P){ /* side: +1 face looks right (backdrop on the right) */
+  const W=im.naturalWidth, H=im.naturalHeight, sc=Math.min(1, 900/Math.max(W,H)), w=Math.max(40,Math.round(W*sc)), h=Math.max(40,Math.round(H*sc)), n=w*h;
+  const c=document.createElement('canvas'); c.width=w; c.height=h; const g=c.getContext('2d',{willReadFrequently:true}); g.drawImage(im,0,0,w,h);
+  const d=g.getImageData(0,0,w,h).data, Lb=new Float32Array(n), Ab=new Float32Array(n), Bb=new Float32Array(n);
+  const lin=v=>{ v/=255; return v<=0.04045? v/12.92 : Math.pow((v+0.055)/1.055,2.4); }, LUT=new Float32Array(256); for(let i=0;i<256;i++) LUT[i]=lin(i);
+  const f=t=> t>0.008856 ? Math.cbrt(t) : 7.787*t+16/116;
+  for(let p=0,i=0;p<n;p++,i+=4){ const r=LUT[d[i]], gg=LUT[d[i+1]], b=LUT[d[i+2]];
+    const X=f((0.4124*r+0.3576*gg+0.1805*b)/0.9505), Y=f(0.2126*r+0.7152*gg+0.0722*b), Z=f((0.0193*r+0.1192*gg+0.9505*b)/1.089);
+    Lb[p]=116*Y-16; Ab[p]=500*(X-Y); Bb[p]=200*(Y-Z); }
+  // anterior side: from the detected facing, else the side whose border strip is most uniform
+  const strip=sd=>{ const xs=[], sw=Math.max(3,Math.round(w*0.035)); for(let y=0;y<h;y++) for(let k=0;k<sw;k++){ xs.push(y*w+(sd>0? w-1-k : k)); } return xs; };
+  const spread=ix=>{ let m=[0,0,0]; ix.forEach(p=>{ m[0]+=Lb[p]; m[1]+=Ab[p]; m[2]+=Bb[p]; }); m=m.map(v=>v/ix.length); let v=0; ix.forEach(p=>{ v+=(Lb[p]-m[0])**2+(Ab[p]-m[1])**2+(Bb[p]-m[2])**2; }); return v/ix.length; };
+  // the plain backdrop is the smoother border strip (hair, ear and neck are textured); detection is not trusted for this
+  const rough=ix=>{ let t=0,c=0; ix.forEach(p=>{ const x=p%w; if(x>0&&x<w-1&&p>w&&p<n-w){ t+=Math.abs(Lb[p+1]-Lb[p-1])+Math.abs(Lb[p+w]-Lb[p-w]); c++; } }); return c? t/c : 1e9; };
+  const rR=rough(strip(1)), rL=rough(strip(-1)); const smooth = rR<rL ? 1 : -1;
+  if (side && side!==smooth) P=null;   // landmarks disagree with the photo: do not use them for the safety check
+  side=smooth;
+  const seeds=strip(side); for(let y=0;y<Math.max(2,Math.round(h*0.025));y++) for(let x=0;x<w;x++){ const ant = side>0 ? x>w*0.5 : x<w*0.5; if(ant) seeds.push(y*w+x); }
+  // backdrop colours: k-means (k=3) on the seed strip, keep clusters that cover at least 8% of it
+  let C=[0.15,0.5,0.85].map(q=>{ const p=seeds[Math.floor(q*(seeds.length-1))]; return [Lb[p],Ab[p],Bb[p]]; });
+  let lab=new Uint8Array(seeds.length);
+  for(let it=0;it<12;it++){ const acc=C.map(()=>[0,0,0,0]);
+    seeds.forEach((p,j)=>{ let bi=0,bd=1e9; C.forEach((c,k)=>{ const dd=(Lb[p]-c[0])**2+(Ab[p]-c[1])**2+(Bb[p]-c[2])**2; if(dd<bd){bd=dd;bi=k;} }); lab[j]=bi; const a=acc[bi]; a[0]+=Lb[p]; a[1]+=Ab[p]; a[2]+=Bb[p]; a[3]++; });
+    C=C.map((c,k)=>acc[k][3]? [acc[k][0]/acc[k][3],acc[k][1]/acc[k][3],acc[k][2]/acc[k][3]] : c); }
+  const cl=C.map((c,k)=>{ let m=0,cnt=0; seeds.forEach((p,j)=>{ if(lab[j]===k){ m+=Math.sqrt((Lb[p]-c[0])**2+(Ab[p]-c[1])**2+(Bb[p]-c[2])**2); cnt++; } }); return {c, share:cnt/seeds.length, T:Math.max(10, Math.min(26, 2.6*(cnt?m/cnt:0)+6))}; }).filter(o=>o.share>=0.08);
+  const isBg=p=>{ for(const o of cl){ const c=o.c; if((Lb[p]-c[0])**2+(Ab[p]-c[1])**2+(Bb[p]-c[2])**2 < o.T*o.T) return true; } return false; };
+  // flood fill from the seeds through backdrop-coloured pixels (so nothing inside the face can be reached)
+  const m=new Uint8Array(n), q=new Int32Array(n); let qh=0, qt=0;
+  seeds.forEach(p=>{ if(!m[p] && isBg(p)){ m[p]=1; q[qt++]=p; } });
+  while(qh<qt){ const p=q[qh++], x=p%w, y=(p/w)|0;
+    if(x>0&&!m[p-1]&&isBg(p-1)){m[p-1]=1;q[qt++]=p-1;} if(x<w-1&&!m[p+1]&&isBg(p+1)){m[p+1]=1;q[qt++]=p+1;}
+    if(y>0&&!m[p-w]&&isBg(p-w)){m[p-w]=1;q[qt++]=p-w;} if(y<h-1&&!m[p+w]&&isBg(p+w)){m[p+w]=1;q[qt++]=p+w;} }
+  const frac=qt/n; if (frac<0.05 || frac>0.9) return null;
+  // safety: the skin just behind each profile landmark must still be face, otherwise the backdrop was too close to skin
+  if (P && P.N && P.C){ const ax=P.C.x-P.N.x, ay=P.C.y-P.N.y, L=Math.hypot(ax,ay)||1, bx=-side*ay/L, by=side*ax/L;
+    for(const k of ['N','K','U','L','C']){ if(!P[k]) continue; const x=Math.round((P[k].x-bx*0.04*L)*sc), y=Math.round((P[k].y-by*0.04*L)*sc);
+      if(x>=0&&y>=0&&x<w&&y<h&&m[y*w+x]) return null; } }
+  // take in the in-between pixels: the dark fringe along the profile and seams where the backdrop changes colour
+  const dmin=p=>{ let b=1e9; for(const o of cl){ const c=o.c, dd=Math.sqrt((Lb[p]-c[0])**2+(Ab[p]-c[1])**2+(Bb[p]-c[2])**2)/o.T; if(dd<b) b=dd; } return b; };
+  for(let it=0;it<3;it++){ const add=[]; for(let p=0;p<n;p++){ if(m[p]) continue; const x=p%w;
+      if(((x>0&&m[p-1])||(x<w-1&&m[p+1])||(p>=w&&m[p-w])||(p<n-w&&m[p+w])) && dmin(p)<2.1) add.push(p); } add.forEach(p=>m[p]=1); }
+  const maxf=(src,r,val)=>{ const t=new Uint8Array(n), o=new Uint8Array(n);   // separable dilation of pixels equal to val
+    for(let y=0;y<h;y++) for(let x=0;x<w;x++){ let v=0; for(let k=-r;k<=r&&!v;k++){ const xx=x+k; if(xx>=0&&xx<w&&src[y*w+xx]===val) v=1; } t[y*w+x]=v; }
+    for(let y=0;y<h;y++) for(let x=0;x<w;x++){ let v=0; for(let k=-r;k<=r&&!v;k++){ const yy=y+k; if(yy>=0&&yy<h&&t[yy*w+x]) v=1; } o[y*w+x]=v; }
+    return o; };
+  { // close: removes thin slivers and specks left inside the backdrop, then one extra pixel to swallow the halo
+    const dil=maxf(m,2,1); const inv=new Uint8Array(n); for(let p=0;p<n;p++) inv[p]=dil[p]?0:1;
+    const ero=maxf(inv,2,1); for(let p=0;p<n;p++) m[p]=ero[p]?0:1;
+    const d1=maxf(m,1,1); for(let p=0;p<n;p++) m[p]=d1[p]; }
+  // soft edge: blur the mask a little, then composite at full resolution
+  const a=new Float32Array(n); for(let p=0;p<n;p++) a[p]=m[p];
+  const box=(src,r)=>{ const t=new Float32Array(n), o=new Float32Array(n);
+    for(let y=0;y<h;y++){ let s2=0,c2=0; for(let x=-r;x<w;x++){ if(x+r<w){s2+=src[y*w+x+r];c2++;} if(x-r-1>=0){s2-=src[y*w+x-r-1];c2--;} if(x>=0) t[y*w+x]=s2/c2; } }
+    for(let x=0;x<w;x++){ let s2=0,c2=0; for(let y=-r;y<h;y++){ if(y+r<h){s2+=t[(y+r)*w+x];c2++;} if(y-r-1>=0){s2-=t[(y-r-1)*w+x];c2--;} if(y>=0) o[y*w+x]=s2/c2; } }
+    return o; };
+  const al=box(box(a,1),1);
+  const mc=document.createElement('canvas'); mc.width=w; mc.height=h; const mg=mc.getContext('2d'); const mi=mg.createImageData(w,h);
+  for(let p=0;p<n;p++){ mi.data[p*4]=mi.data[p*4+1]=mi.data[p*4+2]=255; mi.data[p*4+3]=Math.round(al[p]*255); } mg.putImageData(mi,0,0);
+  const out=document.createElement('canvas'); out.width=W; out.height=H; const og=out.getContext('2d');
+  og.drawImage(im,0,0);
+  const gc=document.createElement('canvas'); gc.width=W; gc.height=H; const gg2=gc.getContext('2d');
+  gg2.imageSmoothingEnabled=true; gg2.imageSmoothingQuality='high'; gg2.drawImage(mc,0,0,W,H);
+  gg2.globalCompositeOperation='source-in'; gg2.fillStyle=`rgb(${GREEN.join(',')})`; gg2.fillRect(0,0,W,H);
+  og.drawImage(gc,0,0);
+  return out.toDataURL('image/jpeg',0.93);
+}
+function applyGreen(){
+  if (isSample || !origImg) return;
+  if (!greenOn){ if (img!==origImg){ img=origImg; imPrep=null; dorsKey=''; dors=null; draw(); renderResults(); } return; }
+  let url=null; try{ url=greenBackground(origImg, pts?facing:0, pts); }catch(e){ url=null; }
+  if (!url){ status('Green background skipped: the backdrop could not be separated from the face safely on this photo.','warn'); return; }
+  const g=new Image(); g.onload=()=>{ if(!greenOn) return; img=g; imPrep=null; dorsKey=''; dors=null; draw(); if(pts) renderResults(); }; g.src=url;
+}
+$('greenBtn').addEventListener('click',()=>{ greenOn=!greenOn; $('greenBtn').setAttribute('aria-pressed', greenOn); applyGreen(); });
 function loadImage(src, sample){
   const im=new Image();
-  const start=(use)=>{ img=use; imgW=use.naturalWidth; imgH=use.naturalHeight; isSample=sample; imPrep=null; dorsKey=''; dors=null; layoutCanvas(); runDetect(false);
+  const start=(use)=>{ img=use; origImg=use; imgW=use.naturalWidth; imgH=use.naturalHeight; isSample=sample; imPrep=null; dorsKey=''; dors=null; layoutCanvas(); runDetect(false); applyGreen();
     if (!sample && enhInfo){ const t=$('statusText').textContent; status(`Photo enhanced (${enhInfo.scale>1.05?'upscaled ×'+f1(enhInfo.scale)+', ':''}contrast and edge sharpness improved). ${t}`, $('status').classList.contains('err')?'err':'warn'); } };
   im.onload=()=>{
     if (sample){ enhInfo=null; start(im); return; }
@@ -1379,7 +1457,7 @@ new MutationObserver(()=>renderResults()).observe(document.documentElement,{attr
 
 renderRows();
 loadSample();
-window.__asta = {enhanceImage, exportPdf, setDl:(d)=>{dlNS=d;}, prepImage, axisProfile, guidedDetect, simulate, planTargets, detect, measure, diagnose, get pts(){return pts;}, get facing(){return facing;}, get imgW(){return imgW;}, setPts:(P)=>{ pts={}; for(const k in P) pts[k]={x:P[k].x,y:P[k].y,est:false,manual:true}; dorsKey=''; syncFacing(); draw(); renderResults(); simulate(); }, loadImage, makeSample, setTol:v=>{tol=v;}};
+window.__asta = {enhanceImage, exportPdf, setDl:(d)=>{dlNS=d;}, prepImage, axisProfile, guidedDetect, simulate, planTargets, detect, measure, diagnose, get pts(){return pts;}, get facing(){return facing;}, get imgW(){return imgW;}, get imgSrc(){return img&&img.src;}, setPts:(P)=>{ pts={}; for(const k in P) pts[k]={x:P[k].x,y:P[k].y,est:false,manual:true}; dorsKey=''; syncFacing(); draw(); renderResults(); simulate(); }, loadImage, makeSample, setTol:v=>{tol=v;}};
 })();
 </script>
 
