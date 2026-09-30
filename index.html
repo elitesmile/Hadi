@@ -597,7 +597,7 @@ function guidedDetect(image, Nimg, Cimg, pref){
 // ---------- nasal dorsum: deviation from the straight N–K line ----------
 const DTOL=2; // % of N–K length treated as straight
 let imPrep=null, dors=null, dorsKey='';
-function getPrep(){ if(!imPrep) imPrep=prepImage(img,1400); return imPrep; }
+function getPrep(){ if(!imPrep) imPrep=prepImage(origImg||img,1400); return imPrep; }
 function computeDorsum(){
   if(!pts||!pts.N||!pts.K||!img) return null;
   const key=[pts.N.x,pts.N.y,pts.K.x,pts.K.y,facing,imgW].map(v=>Math.round(v*10)).join(',');
@@ -1193,7 +1193,7 @@ cv.addEventListener('pointermove',e=>{
 });
 const endDrag=()=>{ if(!dragging) return; const k=dragging; dragging=null; loupeAt=null;
   if ((k==='N'||k==='C') && !['K','U','L'].some(q=>pts[q].manual)){
-    const g=guidedDetect(img, pts.N, pts.C, facing);
+    const g=guidedDetect(origImg||img, pts.N, pts.C, facing);
     if (g){ ['K','U','L','K1','U1'].forEach(q=>{ if(!pts[q].manual) pts[q]={x:g.pts[q].x,y:g.pts[q].y,est:!g.got[q]}; }); draw(); renderResults(); status(`${k} moved. Nose and lips re-traced from the new N–C axis.`); return; }
   }
   draw(); renderResults(); status(`${k} (${NAMES[k]}) moved. Results updated.`); };
@@ -1274,7 +1274,7 @@ function startGuided(msg){
   status(msg,'warn');
 }
 function applyGuided(Np,Cp){
-  const r=guidedDetect(img, Np, Cp, 0);
+  const r=guidedDetect(origImg||img, Np, Cp, 0);
   if(!r){ pts={N:{...Np,est:false},C:{...Cp,est:false}};
     const nc=Math.hypot(Cp.x-Np.x,Cp.y-Np.y), a={x:(Cp.x-Np.x)/nc,y:(Cp.y-Np.y)/nc}, b={x:facing*a.y,y:-facing*a.x};
     const P=(deg,dist)=>{ const t=deg*Math.PI/180; return {x:Np.x+(a.x*Math.cos(t)+b.x*Math.sin(t))*dist, y:Np.y+(a.y*Math.cos(t)+b.y*Math.sin(t))*dist, est:true}; };
@@ -1301,7 +1301,7 @@ $('manual').addEventListener('click',()=>{
 function runDetect(keepFacing){
   if(!img) return;
   placing=null; $('manual').setAttribute('aria-pressed','false'); $('placebar').hidden=true;
-  const r = detect(img, keepFacing ? facing : 0);
+  const r = detect(origImg||img, keepFacing ? facing : 0);
   if (!r){
     pts=null; status('Automatic detection could not find the profile. Use “Tap N + C”: tap nasion and chin, and the tool finds the nose and lips.','err');
     $('vHead').textContent='Waiting for landmarks'; $('vWhy').textContent=''; $('vTx').innerHTML=''; $('vSteps').innerHTML=''; $('tbody').innerHTML=''; $('map').innerHTML='';
@@ -1309,7 +1309,7 @@ function runDetect(keepFacing){
   }
   facing=r.side; $('faceR').setAttribute('aria-pressed', facing>0); $('faceL').setAttribute('aria-pressed', facing<0);
   pts={}; ORDER.forEach(k=>{ pts[k]={x:r.pts[k].x, y:r.pts[k].y, est: !r.got[k]}; });
-  if (r.got.C){ const g=guidedDetect(img, r.pts.N, r.pts.C, r.side); if (g && g.got.U && g.got.L){ ['K','U','L','K1','U1'].forEach(k=>{ pts[k]={x:g.pts[k].x,y:g.pts[k].y,est:!g.got[k]}; }); } }
+  if (r.got.C){ const g=guidedDetect(origImg||img, r.pts.N, r.pts.C, r.side); if (g && g.got.U && g.got.L){ ['K','U','L','K1','U1'].forEach(k=>{ pts[k]={x:g.pts[k].x,y:g.pts[k].y,est:!g.got[k]}; }); } }
   const missing=['U','L','C'].filter(k=>!r.got[k]);
   const tk=theta(pts.K), tu=theta(pts.U), tl=theta(pts.L);
   const axTilt=Math.abs(Math.atan2(pts.C.x-pts.N.x, pts.C.y-pts.N.y)*180/Math.PI);
@@ -1375,14 +1375,17 @@ function greenBackground(im, side, P){ /* side: +1 face looks right (backdrop on
   for(let it=0;it<12;it++){ const acc=C.map(()=>[0,0,0,0]);
     seeds.forEach((p,j)=>{ let bi=0,bd=1e9; C.forEach((c,k)=>{ const dd=(Lb[p]-c[0])**2+(Ab[p]-c[1])**2+(Bb[p]-c[2])**2; if(dd<bd){bd=dd;bi=k;} }); lab[j]=bi; const a=acc[bi]; a[0]+=Lb[p]; a[1]+=Ab[p]; a[2]+=Bb[p]; a[3]++; });
     C=C.map((c,k)=>acc[k][3]? [acc[k][0]/acc[k][3],acc[k][1]/acc[k][3],acc[k][2]/acc[k][3]] : c); }
-  const cl=C.map((c,k)=>{ let m=0,cnt=0; seeds.forEach((p,j)=>{ if(lab[j]===k){ m+=Math.sqrt((Lb[p]-c[0])**2+(Ab[p]-c[1])**2+(Bb[p]-c[2])**2); cnt++; } }); return {c, share:cnt/seeds.length, T:Math.max(10, Math.min(26, 2.6*(cnt?m/cnt:0)+6))}; }).filter(o=>o.share>=0.08);
+  const cl=C.map((c,k)=>{ let m=0,cnt=0; seeds.forEach((p,j)=>{ if(lab[j]===k){ m+=Math.sqrt((Lb[p]-c[0])**2+(Ab[p]-c[1])**2+(Bb[p]-c[2])**2); cnt++; } }); return {c, share:cnt/seeds.length, T:Math.max(9, Math.min(18, 2.4*(cnt?m/cnt:0)+5))}; }).filter(o=>o.share>=0.08);
   const isBg=p=>{ for(const o of cl){ const c=o.c; if((Lb[p]-c[0])**2+(Ab[p]-c[1])**2+(Bb[p]-c[2])**2 < o.T*o.T) return true; } return false; };
   // flood fill from the seeds through backdrop-coloured pixels (so nothing inside the face can be reached)
+  // edge barrier: the fill never crosses a clear luminance edge (the forehead against a light wall still has one)
+  const gr=new Uint8Array(n); for(let p=w;p<n-w;p++){ const x=p%w; if(x<1||x>w-2) continue; const gx=Lb[p+1]-Lb[p-1], gy=Lb[p+w]-Lb[p-w]; if(gx*gx+gy*gy>14*14) gr[p]=1; }
+  const isBg0=isBg; const isBgE=p=>!gr[p] && isBg0(p);
   const m=new Uint8Array(n), q=new Int32Array(n); let qh=0, qt=0;
   seeds.forEach(p=>{ if(!m[p] && isBg(p)){ m[p]=1; q[qt++]=p; } });
   while(qh<qt){ const p=q[qh++], x=p%w, y=(p/w)|0;
-    if(x>0&&!m[p-1]&&isBg(p-1)){m[p-1]=1;q[qt++]=p-1;} if(x<w-1&&!m[p+1]&&isBg(p+1)){m[p+1]=1;q[qt++]=p+1;}
-    if(y>0&&!m[p-w]&&isBg(p-w)){m[p-w]=1;q[qt++]=p-w;} if(y<h-1&&!m[p+w]&&isBg(p+w)){m[p+w]=1;q[qt++]=p+w;} }
+    if(x>0&&!m[p-1]&&isBgE(p-1)){m[p-1]=1;q[qt++]=p-1;} if(x<w-1&&!m[p+1]&&isBgE(p+1)){m[p+1]=1;q[qt++]=p+1;}
+    if(y>0&&!m[p-w]&&isBgE(p-w)){m[p-w]=1;q[qt++]=p-w;} if(y<h-1&&!m[p+w]&&isBgE(p+w)){m[p+w]=1;q[qt++]=p+w;} }
   const frac=qt/n; if (frac<0.05 || frac>0.9) return null;
   // safety: the skin just behind each profile landmark must still be face, otherwise the backdrop was too close to skin
   if (P && P.N && P.C){ const ax=P.C.x-P.N.x, ay=P.C.y-P.N.y, L=Math.hypot(ax,ay)||1, bx=-side*ay/L, by=side*ax/L;
@@ -1390,8 +1393,8 @@ function greenBackground(im, side, P){ /* side: +1 face looks right (backdrop on
       if(x>=0&&y>=0&&x<w&&y<h&&m[y*w+x]) return null; } }
   // take in the in-between pixels: the dark fringe along the profile and seams where the backdrop changes colour
   const dmin=p=>{ let b=1e9; for(const o of cl){ const c=o.c, dd=Math.sqrt((Lb[p]-c[0])**2+(Ab[p]-c[1])**2+(Bb[p]-c[2])**2)/o.T; if(dd<b) b=dd; } return b; };
-  for(let it=0;it<3;it++){ const add=[]; for(let p=0;p<n;p++){ if(m[p]) continue; const x=p%w;
-      if(((x>0&&m[p-1])||(x<w-1&&m[p+1])||(p>=w&&m[p-w])||(p<n-w&&m[p+w])) && dmin(p)<2.1) add.push(p); } add.forEach(p=>m[p]=1); }
+  for(let it=0;it<2;it++){ const add=[]; for(let p=0;p<n;p++){ if(m[p]) continue; const x=p%w;
+      if(((x>0&&m[p-1])||(x<w-1&&m[p+1])||(p>=w&&m[p-w])||(p<n-w&&m[p+w])) && dmin(p)<1.5) add.push(p); } add.forEach(p=>m[p]=1); }
   const maxf=(src,r,val)=>{ const t=new Uint8Array(n), o=new Uint8Array(n);   // separable dilation of pixels equal to val
     for(let y=0;y<h;y++) for(let x=0;x<w;x++){ let v=0; for(let k=-r;k<=r&&!v;k++){ const xx=x+k; if(xx>=0&&xx<w&&src[y*w+xx]===val) v=1; } t[y*w+x]=v; }
     for(let y=0;y<h;y++) for(let x=0;x<w;x++){ let v=0; for(let k=-r;k<=r&&!v;k++){ const yy=y+k; if(yy>=0&&yy<h&&t[yy*w+x]) v=1; } o[y*w+x]=v; }
@@ -1407,8 +1410,13 @@ function greenBackground(im, side, P){ /* side: +1 face looks right (backdrop on
     for(let x=0;x<w;x++){ let s2=0,c2=0; for(let y=-r;y<h;y++){ if(y+r<h){s2+=t[(y+r)*w+x];c2++;} if(y-r-1>=0){s2-=t[(y-r-1)*w+x];c2--;} if(y>=0) o[y*w+x]=s2/c2; } }
     return o; };
   const al=box(box(a,1),1);
+  return composeGreen(im, al, w, h);
+}
+// alpha (1 = backdrop) at working size w×h → full-resolution photo with a green backdrop
+function composeGreen(im, al, w, h){
+  const W=im.naturalWidth, H=im.naturalHeight, n=w*h;
   const mc=document.createElement('canvas'); mc.width=w; mc.height=h; const mg=mc.getContext('2d'); const mi=mg.createImageData(w,h);
-  for(let p=0;p<n;p++){ mi.data[p*4]=mi.data[p*4+1]=mi.data[p*4+2]=255; mi.data[p*4+3]=Math.round(al[p]*255); } mg.putImageData(mi,0,0);
+  for(let p=0;p<n;p++){ mi.data[p*4]=mi.data[p*4+1]=mi.data[p*4+2]=255; mi.data[p*4+3]=Math.round(Math.max(0,Math.min(1,al[p]))*255); } mg.putImageData(mi,0,0);
   const out=document.createElement('canvas'); out.width=W; out.height=H; const og=out.getContext('2d');
   og.drawImage(im,0,0);
   const gc=document.createElement('canvas'); gc.width=W; gc.height=H; const gg2=gc.getContext('2d');
@@ -1417,14 +1425,58 @@ function greenBackground(im, side, P){ /* side: +1 face looks right (backdrop on
   og.drawImage(gc,0,0);
   return out.toDataURL('image/jpeg',0.93);
 }
-function applyGreen(){
-  if (isSample || !origImg) return;
-  if (!greenOn){ if (img!==origImg){ img=origImg; imPrep=null; dorsKey=''; dors=null; draw(); renderResults(); } return; }
-  let url=null; try{ url=greenBackground(origImg, pts?facing:0, pts); }catch(e){ url=null; }
-  if (!url){ status('Green background skipped: the backdrop could not be separated from the face safely on this photo.','warn'); return; }
-  const g=new Image(); g.onload=()=>{ if(!greenOn) return; img=g; imPrep=null; dorsKey=''; dors=null; draw(); if(pts) renderResults(); }; g.src=url;
+// ---- person segmentation (MediaPipe selfie segmenter, runs on the device; fetched once, then cached for offline use)
+const MP='https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14', SEG_MODEL='https://storage.googleapis.com/mediapipe-models/image_segmenter/selfie_segmenter/float16/latest/selfie_segmenter.tflite';
+let segP=null;
+function getSegmenter(){
+  if(!segP) segP=(async()=>{ const v=await import(MP+'/vision_bundle.mjs'); const fs=await v.FilesetResolver.forVisionTasks(MP+'/wasm');
+    return await v.ImageSegmenter.createFromOptions(fs,{baseOptions:{modelAssetPath:SEG_MODEL, delegate:'CPU'}, runningMode:'IMAGE', outputConfidenceMasks:true, outputCategoryMask:false}); })()
+    .catch(e=>{ segP=null; throw e; });
+  return segP; }
+async function personMask(im){
+  if (window.__segOverride) return window.__segOverride(im);
+  const seg=await Promise.race([getSegmenter(), new Promise((_,rej)=>setTimeout(()=>rej(new Error('timeout')),25000))]);
+  const r=seg.segment(im); const mk=r.confidenceMasks[0]; const out={w:mk.width, h:mk.height, data:Float32Array.from(mk.getAsFloat32Array())}; if(r.close) r.close(); return out; }
+// model mask → alpha: upsample, orient (border = backdrop), then a guided filter against the photo so the edge follows the real profile
+function greenFromMask(im, M){
+  const W=im.naturalWidth, H=im.naturalHeight, sc=Math.min(1, 900/Math.max(W,H)), w=Math.max(40,Math.round(W*sc)), h=Math.max(40,Math.round(H*sc)), n=w*h;
+  const c=document.createElement('canvas'); c.width=w; c.height=h; const g=c.getContext('2d',{willReadFrequently:true}); g.drawImage(im,0,0,w,h); const d=g.getImageData(0,0,w,h).data;
+  const I=new Float32Array(n); for(let p=0,i=0;p<n;p++,i+=4) I[p]=(d[i]*0.299+d[i+1]*0.587+d[i+2]*0.114)/255;
+  const P=new Float32Array(n);
+  for(let y=0;y<h;y++){ const fy=Math.min(M.h-1.001, Math.max(0,(y+0.5)*M.h/h-0.5)), y0=fy|0, ay=fy-y0;
+    for(let x=0;x<w;x++){ const fx=Math.min(M.w-1.001, Math.max(0,(x+0.5)*M.w/w-0.5)), x0=fx|0, ax=fx-x0, i0=y0*M.w+x0;
+      P[y*w+x]=(M.data[i0]*(1-ax)+M.data[i0+1]*ax)*(1-ay)+(M.data[i0+M.w]*(1-ax)+M.data[i0+M.w+1]*ax)*ay; } }
+  // orientation: most of the photo border is backdrop
+  const bv=[]; for(let x=0;x<w;x+=2){ bv.push(P[x]); } for(let y=0;y<h;y+=2){ bv.push(P[y*w]); bv.push(P[y*w+w-1]); } bv.sort((a,b)=>a-b);
+  if (bv[bv.length>>1]>0.5) for(let p=0;p<n;p++) P[p]=1-P[p];      // now P = person
+  let fr=0; for(let p=0;p<n;p++) fr+=P[p]>0.5; fr/=n; if (fr<0.08 || fr>0.95) return null;
+  const box=(src,r)=>{ const t=new Float32Array(n), o=new Float32Array(n);
+    for(let y=0;y<h;y++){ let s2=0,c2=0; for(let x=-r;x<w;x++){ if(x+r<w){s2+=src[y*w+x+r];c2++;} if(x-r-1>=0){s2-=src[y*w+x-r-1];c2--;} if(x>=0) t[y*w+x]=s2/c2; } }
+    for(let x=0;x<w;x++){ let s2=0,c2=0; for(let y=-r;y<h;y++){ if(y+r<h){s2+=t[(y+r)*w+x];c2++;} if(y-r-1>=0){s2-=t[(y-r-1)*w+x];c2--;} if(y>=0) o[y*w+x]=s2/c2; } }
+    return o; };
+  const r=Math.max(4,Math.round(Math.min(w,h)*0.012)), eps=0.0025, mul=(A,B)=>{ const o=new Float32Array(n); for(let p=0;p<n;p++) o[p]=A[p]*B[p]; return o; };
+  const mI=box(I,r), mP=box(P,r), cII=box(mul(I,I),r), cIP=box(mul(I,P),r), A=new Float32Array(n), B=new Float32Array(n);
+  for(let p=0;p<n;p++){ const v=cII[p]-mI[p]*mI[p], cv=cIP[p]-mI[p]*mP[p]; A[p]=cv/(v+eps); B[p]=mP[p]-A[p]*mI[p]; }
+  const mA=box(A,r), mB=box(B,r), al=new Float32Array(n);
+  for(let p=0;p<n;p++){ const q=mA[p]*I[p]+mB[p]; const t=Math.max(0,Math.min(1,(q-0.3)/0.4)); al[p]=1-t*t*(3-2*t); }   // 1 = backdrop
+  return composeGreen(im, al, w, h);
 }
-$('greenBtn').addEventListener('click',()=>{ greenOn=!greenOn; $('greenBtn').setAttribute('aria-pressed', greenOn); applyGreen(); });
+let greenJob=0;
+async function applyGreen(){
+  if (isSample || !origImg) return;
+  const job=++greenJob, src=origImg;
+  if (!greenOn){ if (img!==origImg){ img=origImg; draw(); } return; }
+  status('Preparing the green background…');
+  let url=null, how='';
+  try{ const M=await personMask(src); if (job!==greenJob) return; url=greenFromMask(src, M); if(url) how='person model'; }catch(e){ url=null; }
+  if (!url){ try{ url=greenBackground(src, pts?facing:0, pts); if(url) how='colour'; }catch(e){ url=null; } }
+  if (job!==greenJob || src!==origImg) return;
+  if (!url){ status('Green background skipped: the backdrop could not be separated from the face safely on this photo. Use the Green background button to try again when online.','warn'); return; }
+  const g=new Image(); g.onload=()=>{ if(!greenOn || job!==greenJob) return; img=g; draw();
+    status(how==='colour' ? 'Green background applied (offline mode, colour-based). If any part of the face turned green, switch it off with the Green background button.' : 'Green background applied. Measurements always use the original photo.'); };
+  g.src=url;
+}
+$('greenBtn').addEventListener('click',()=>{ greenOn=!greenOn; $('greenBtn').setAttribute('aria-pressed', greenOn); if(!greenOn) greenJob++; applyGreen(); });
 function loadImage(src, sample){
   const im=new Image();
   const start=(use)=>{ img=use; origImg=use; imgW=use.naturalWidth; imgH=use.naturalHeight; isSample=sample; imPrep=null; dorsKey=''; dors=null; layoutCanvas(); runDetect(false); applyGreen();
