@@ -604,7 +604,8 @@ function computeDorsum(){
   if (key===dorsKey) return dors;
   dorsKey=key;
   const im=getPrep(), sc=im.sc, N={x:pts.N.x*sc,y:pts.N.y*sc}, K={x:pts.K.x*sc,y:pts.K.y*sc};
-  const tr=traceEdge(im, N, K, facing, {dMin:-0.25, dMax:0.25, t0:0.25, t1:0.8, s0:-0.22, s1:-0.12, minL:15});
+  const BAND=0.12;   // a real hump/saddle stays well within ±12% of N–K; wider bands latch onto background edges (glow, shadows)
+  const tr=traceEdge(im, N, K, facing, {dMin:-BAND, dMax:BAND, t0:0.25, t1:0.8, s0:-0.22, s1:-0.12, minL:15});
   if(!tr){ dors=null; return null; }
   const {es,a,b,L}=tr; const i0=Math.round(0.1*L), i1=Math.round(0.82*L);
   let mx=-Infinity, mxI=i0, mn=Infinity, mnI=i0;
@@ -612,8 +613,10 @@ function computeDorsum(){
   const img2=(i,off)=>({x:(N.x+a.x*i+b.x*off)/sc, y:(N.y+a.y*i+b.y*off)/sc});
   const path=[]; for(let i=0;i<es.length;i+=Math.max(1,Math.round(L/60))) path.push(img2(i,es[i]));
   const hump=Math.max(0,mx)/L*100, sad=Math.max(0,-mn)/L*100;
+  // the trace ran into the edge of the search band: it is following something other than the bridge (or K is off the tip)
+  const edgeHit = mx>=0.9*BAND*L || mn<=-0.9*BAND*L;
   const main = hump>=sad ? {kind:'hump', pct:hump, i:mxI} : {kind:'concave', pct:sad, i:mnI};
-  dors={hump, sad, main, path, L, es, at:(f)=>{ const i=Math.max(0,Math.min(es.length-1,Math.round(f*L))); return {f:i/L, pt:img2(i,es[i]), off:es[i]/L}; },
+  dors={hump, sad, main, path, L, es, unreliable:edgeHit, at:(f)=>{ const i=Math.max(0,Math.min(es.length-1,Math.round(f*L))); return {f:i/L, pt:img2(i,es[i]), off:es[i]/L}; },
         peak:img2(main.i, es[main.i]), foot:img2(main.i,0)};
   return dors;
 }
@@ -724,9 +727,14 @@ function draw(){
       pill(l.txt, lx, l.y, col); }); }
   computeDorsum();
   if (dors && dors.path.length>2){
-    ctx.beginPath(); dors.path.forEach((p,i)=>{ const q=toScreen(p); i?ctx.lineTo(q.x,q.y):ctx.moveTo(q.x,q.y); });
-    ctx.strokeStyle='rgba(255,255,255,.85)'; ctx.lineWidth=3; ctx.stroke(); ctx.strokeStyle='#7a3fa0'; ctx.lineWidth=1.4; ctx.stroke();
-    if (dors.main.pct>DTOL){ const p=toScreen(dors.peak), f=toScreen(dors.foot); line(f,p,'rgba(255,255,255,.9)',4,[]); line(f,p,'#b23f2c',2.2,[]);
+    if (dors.unreliable){ // no misleading trace: just say so, kept inside the photo
+      const q=toScreen(dors.path[Math.floor(dors.path.length/2)]), txt='bridge unclear: check K', W=imgW*dispK;
+      ctx.font='600 12px "IBM Plex Sans", system-ui, sans-serif'; const hw=ctx.measureText(txt).width/2+10;
+      pill(txt, Math.max(hw, Math.min(W-hw, q.x+facing*(hw+14))), q.y-16, '#a86a12'); }
+    else { ctx.beginPath(); dors.path.forEach((p,i)=>{ const q=toScreen(p); i?ctx.lineTo(q.x,q.y):ctx.moveTo(q.x,q.y); });
+    ctx.strokeStyle='rgba(255,255,255,.85)'; ctx.lineWidth=3; ctx.stroke(); ctx.strokeStyle='#7a3fa0'; ctx.lineWidth=1.4; ctx.stroke(); }
+    if (dors.unreliable){}
+    else if (dors.main.pct>DTOL){ const p=toScreen(dors.peak), f=toScreen(dors.foot); line(f,p,'rgba(255,255,255,.9)',4,[]); line(f,p,'#b23f2c',2.2,[]);
       pill(`${dors.main.kind==='hump'?'hump +':'concave −'}${f1(dors.main.pct)}%`, p.x+(p.x-f.x)*0+facing*46, p.y-(dors.main.kind==='hump'?18:-18), '#b23f2c'); }
   }
   ORDER.forEach(k=>{ if(pts[k]) drawPoint(k); });
@@ -787,7 +795,8 @@ function renderResults(){
     const cl = r.cls==='mod' ? 'Modifiable' : r.cls==='emb' ? 'Embedded' : 'Composite';
     html+=`<tr><td class="ang">${r.id}</td><td class="desc">${r.desc} <span class="muted small">· ${cl}</span></td><td class="num">${f1(r.v)}°</td><td class="num">${r.ideal}°</td><td class="num">${sgn(r.v-r.ideal)}</td><td>${chipFor(r)}</td></tr>`;
   });
-  if (dors){ const m=dors.main, v=m.kind==='hump'?m.pct:-m.pct;
+  if (dors && dors.unreliable){ html+=`<tr class="grp"><td colspan="6">Nasal dorsum</td></tr><tr><td class="ang">N–K line</td><td class="desc">The bridge could not be traced reliably on this photo (background edge or K not on the nose tip). Check K, or judge the bridge visually.</td><td class="num">—</td><td class="num">0%</td><td class="num">—</td><td><span class="chip c-est">Unclear</span></td></tr>`; }
+  else if (dors){ const m=dors.main, v=m.kind==='hump'?m.pct:-m.pct;
     const ch = m.pct<=DTOL ? '<span class="chip c-ok">Straight</span>' : `<span class="chip ${m.pct<=2*DTOL?'c-mild':'c-bad'}">${m.kind==='hump'?'Hump':'Concave'}</span>`;
     html+=`<tr class="grp"><td colspan="6">Nasal dorsum</td></tr><tr><td class="ang">N–K line</td><td class="desc">Largest dorsal deviation from the straight N–K line, % of N–K length (+ hump, − concave) <span class="muted small">· Modifiable</span></td><td class="num">${v>0?'+':v<0?'−':''}${f1(Math.abs(v))}%</td><td class="num">0%</td><td class="num">${sgn(v)}</td><td>${ch}</td></tr>`; }
   $('tbody').innerHTML=html;
@@ -806,7 +815,7 @@ function renderVerdict(D,t){
     items.push(['Upper lip', D.u>0?`<b>Retract the upper lip</b> by about ${f1(D.u)}°.`:`<b>Advance the upper lip</b> by about ${f1(-D.u)}°.`]); }
   if (Math.abs(D.l)>tol){ dev.push(D.l>0?`Lower lip protrusive by ${f1(D.l)}°`:`Lower lip retrusive by ${f1(-D.l)}°`);
     items.push(['Lower lip', D.l>0?`<b>Retract the lower lip</b> by about ${f1(D.l)}°.`:`<b>Advance the lower lip</b> by about ${f1(-D.l)}°.`]); }
-  if (dors && dors.main.pct>DTOL){ const m=dors.main;
+  if (dors && !dors.unreliable && dors.main.pct>DTOL){ const m=dors.main;
     dev.push(m.kind==='hump'?`Dorsal hump ${f1(m.pct)}% above the N–K line`:`Concave (saddle) dorsum ${f1(m.pct)}% below the N–K line`);
     items.push(['Dorsum', m.kind==='hump'?`<b>Dorsal hump reduction</b>: bring the bridge down onto the straight N–K line.`:`<b>Dorsal augmentation</b> (saddle correction): build the bridge up to the straight N–K line.`]); }
   const v=$('verdict');
@@ -824,7 +833,7 @@ function renderVerdict(D,t){
     else if (Math.abs(D.dK)>tol && lipsNoseOK) why=`C–N–K is ${f1(t.K)}° (ideal 30°). The lips are ideal relative to the nose and all shifted equally against the chin, so the chin is the deviating component.`;
     else if (Math.abs(D.dK)<=tol) why=`C–N–K is ideal (${f1(t.K)}°), so nose and chin are balanced. The deviating lip moved in a paired change: closer to one reference, farther from the other.`;
     else why=`C–N–K is ${f1(t.K)}° (ideal 30°). The simplest explanation that fits all the angles involves ${dev.length} components.`;
-    if (dors && dors.main.pct>DTOL && dev.length===1) why=`All angles are within ±${f1(tol)}°, but the nasal bridge is not on the straight line from N to K: its largest deviation is ${f1(dors.main.pct)}% of the N–K length.`;
+    if (dors && !dors.unreliable && dors.main.pct>DTOL && dev.length===1) why=`All angles are within ±${f1(tol)}°, but the nasal bridge is not on the straight line from N to K: its largest deviation is ${f1(dors.main.pct)}% of the N–K length.`;
     if (keep.length) why+=` Keep the ${keep.join(', ')} unchanged.`;
     $('vWhy').textContent=why;
     $('vTx').innerHTML=items.map(([k,s])=>`<div><span class="tag c-bad">${k}</span><span>${s}</span></div>`).join('');
@@ -885,8 +894,8 @@ function planTargets(){
   if (move.L) T.L = toAngle(pts.L, 4);
   // dorsum: keep it on (or bring it to) the straight line from N to the new tip
   const extra=[]; const d=computeDorsum();
-  move.dorsum = !!d && (all ? d.main.pct>0.3 : d.main.pct>DTOL);
-  if (d){
+  move.dorsum = !!d && !d.unreliable && (all ? d.main.pct>0.3 : d.main.pct>DTOL);
+  if (d && !d.unreliable){
     const kx=T.K.x-N.x, ky=T.K.y-N.y, kl=Math.hypot(kx,ky), bx=facing*ky/kl, by=-facing*kx/kl;
     const ox=pts.K.x-N.x, oy=pts.K.y-N.y, ol=Math.hypot(ox,oy);
     [0.2,0.35,0.5,0.65,0.8].forEach(f=>{ const q=d.at(f); const off = move.dorsum ? 0 : q.off*ol*(kl/ol);
@@ -1018,7 +1027,7 @@ function annotatedPhoto(){
   const sc=Math.min(1, 1400/Math.max(imgW,imgH)), w=Math.round(imgW*sc), h=Math.round(imgH*sc);
   const c=document.createElement('canvas'); c.width=w; c.height=h; const g=c.getContext('2d'); g.drawImage(img,0,0,w,h);
   drawMarks(g, pts, sc, 0, 0, Math.max(1,w/700));
-  if (dors && dors.path.length>2){ g.beginPath(); dors.path.forEach((p,i)=>{ i?g.lineTo(p.x*sc,p.y*sc):g.moveTo(p.x*sc,p.y*sc); }); g.strokeStyle='#7a3fa0'; g.lineWidth=Math.max(1.5,w/500); g.stroke(); }
+  if (dors && !dors.unreliable && dors.path.length>2){ g.beginPath(); dors.path.forEach((p,i)=>{ i?g.lineTo(p.x*sc,p.y*sc):g.moveTo(p.x*sc,p.y*sc); }); g.strokeStyle='#7a3fa0'; g.lineWidth=Math.max(1.5,w/500); g.stroke(); }
   g.font=`600 ${Math.round(w/45)}px sans-serif`; g.textBaseline='middle';
   ORDER.forEach(k=>{ const p=pts[k]; const x=p.x*sc+((k==='K1'||k==='U1')?-facing:facing)*w/40, y=p.y*sc-w/60; g.fillStyle='rgba(255,255,255,.9)'; const tw=g.measureText(k).width; g.fillRect(x-tw/2-4,y-w/80,tw+8,w/40); g.fillStyle='#17212b'; g.textAlign='center'; g.fillText(k,x,y); });
   return {url:c.toDataURL('image/jpeg',0.9), w, h};
@@ -1063,7 +1072,8 @@ async function exportPdf(){
   ['Angle','Describes','Measured','Ideal','Diff','Status'].forEach((h,i)=>doc.text(h, cols[i]+(i>=2&&i<=4?14:0)-(i>=2&&i<=4?14:0)+1, y+4.2)); y+=6;
   doc.setFont('helvetica','normal'); doc.setFontSize(8.5);
   const rowsT=A.map(r=>[r.id, `${r.desc} (${r.cls==='mod'?'modifiable':r.cls==='emb'?'embedded':'composite'})`, `${f1(r.v)}°`, `${r.ideal}°`, sgn(r.v-r.ideal), statusText(r)]);
-  if (dors){ const m=dors.main, v=m.kind==='hump'?m.pct:-m.pct; rowsT.push(['Dorsum','Largest deviation from straight N-K line (% of N-K)', `${v>0?'+':v<0?'-':''}${f1(Math.abs(v))}%`, '0%', sgn(v), m.pct<=DTOL?'Straight':(m.kind==='hump'?'Hump':'Concave')]); }
+  if (dors && dors.unreliable) rowsT.push(['Dorsum','Bridge could not be traced reliably (check K)','-','0%','-','Unclear']);
+  else if (dors){ const m=dors.main, v=m.kind==='hump'?m.pct:-m.pct; rowsT.push(['Dorsum','Largest deviation from straight N-K line (% of N-K)', `${v>0?'+':v<0?'-':''}${f1(Math.abs(v))}%`, '0%', sgn(v), m.pct<=DTOL?'Straight':(m.kind==='hump'?'Hump':'Concave')]); }
   rowsT.forEach((r,i)=>{ if(i%2){ doc.setFillColor(248,250,250); doc.rect(M,y,CW,5.6,'F'); }
     const st=r[5]; doc.setTextColor(23,33,43);
     r.forEach((c,j)=>{ if(j===5){ const ok=st==='Ideal'||st==='Straight', est=st==='Estimate'; doc.setTextColor(ok?14:est?120:178, ok?124:est?120:63, ok?116:est?120:44); }
@@ -1129,7 +1139,7 @@ $('addRow').addEventListener('click',()=>{
   const {t,A}=measure(); const D=diagnose(t); const g=id=>f1(A.find(a=>a.id===id).v);
   const r={case_id: $('caseId').value.trim() || ('Case '+(rows.length+1)), recorded:new Date().toISOString().slice(0,16).replace('T',' '), facing: facing>0?'right':'left',
     CNK:g('C–N–K'),CNK1:g('C–N–K1'),K1NK:g('K1–N–K'),KNU:g('K–N–U'),UNC:g('U–N–C'),UNU1:g('U1–N–U'),KNL:g('K–N–L'),LNC:g('L–N–C'),LNU:g('L–N–U'),LNU1:g('U1–N–L'),CNU1:g('C–N–U1'),
-    chin_dev:f1(D.c),nose_dev:f1(D.n),upper_lip_dev:f1(D.u),lower_lip_dev:f1(D.l), dorsum_dev_pct: dors? f1(dors.main.kind==='hump'?dors.main.pct:-dors.main.pct):'', finding:$('vHead').textContent,
+    chin_dev:f1(D.c),nose_dev:f1(D.n),upper_lip_dev:f1(D.u),lower_lip_dev:f1(D.l), dorsum_dev_pct: dors && !dors.unreliable ? f1(dors.main.kind==='hump'?dors.main.pct:-dors.main.pct):'', finding:$('vHead').textContent,
     K1_U1_confirmed: (!pts.K1.est && !pts.U1.est) ? 'yes':'no', image_w:imgW, image_h:imgH, tolerance:tol};
   ORDER.forEach(k=>{ r[k+'_x']=Math.round(pts[k].x*10)/10; r[k+'_y']=Math.round(pts[k].y*10)/10; });
   rows.push(r); saveRows(); renderRows(); $('caseId').value='';
