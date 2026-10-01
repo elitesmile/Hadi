@@ -895,7 +895,7 @@ function solve(A, B){ // A n×n, B n×2 → X n×2 (Gaussian elimination)
     const d=M[c][c]||1e-9; for(let r=0;r<n;r++){ if(r===c) continue; const f=M[r][c]/d; for(let k=c;k<n+2;k++) M[r][k]-=f*M[c][k]; } }
   return M.map((r,i)=>[r[n]/r[i], r[n+1]/r[i]]);
 }
-const TIP={r:0.2, o:0.35, s:0.9};   // tip refinement: radius (× N–T), centre offset behind the apex (× radius), strength
+const TIP={c:0.65, r:0.2, s:0.15, n:0.12, rot:16};   // tip refinement: centre (K1→T fraction), radius (× N–T), size reduction, narrowing, upward rotation (°)
 function warpImage(T, extra, chin, refine){
   const sc=Math.min(1, 1100/Math.max(imgW,imgH)), w=Math.round(imgW*sc), h=Math.round(imgH*sc);
   const src=document.createElement('canvas'); src.width=w; src.height=h; const sg=src.getContext('2d',{willReadFrequently:true}); sg.drawImage(img,0,0,w,h);
@@ -942,17 +942,23 @@ function warpImage(T, extra, chin, refine){
     y0=Math.max(0,Math.floor(Math.min(...ys)-pad)); y1=Math.min(h-1,Math.ceil(Math.max(...ys)+pad)); }
   const sd=sg.getImageData(0,0,w,h).data, od=og.getImageData(0,0,w,h), o=od.data;
   const edgeM=Math.max(24, 0.07*Math.min(w,h));
-  // tip refinement (only when the nose is corrected): around the new tip, the lobule is drawn in toward the tip axis
-  // (alar base K1 → tip T) while the apex stays on the axis, so the tip reads defined and slightly pointed, not round.
-  // Smooth and monotonic (no folding), so it never smears.
-  const tip = (refine && T.T) ? (()=>{ const Tx=T.T.x*sc, Ty=T.T.y*sc, ax0=T.T.x-pts.K1.x, ay0=T.T.y-pts.K1.y, al=Math.hypot(ax0,ay0)||1;
-      const TP=window.__tipP||TIP, nt=Math.hypot(T.T.x-pts.N.x, T.T.y-pts.N.y)*sc, rho=Math.max(6, TP.r*nt), a={x:ax0/al, y:ay0/al};
-      return {a, b:{x:-a.y, y:a.x}, cx:Tx-a.x*TP.o*rho, cy:Ty-a.y*TP.o*rho, rho, s:TP.s}; })() : null;
+  // tip refinement (only when the nose is corrected): a small, defined, slightly upturned tip.
+  // Around a centre inside the lobule (between the alar base K1 and the tip T) the lobule is scaled down a little,
+  // narrowed slightly toward its axis and rotated upward (cephalic rotation). Weights fall off smoothly, so the
+  // dorsum, alar base and lip are untouched and nothing folds or smears.
+  const tip = (refine && T.T) ? (()=>{ const TP=window.__tipP||TIP;
+      const Tx=T.T.x*sc, Ty=T.T.y*sc, Kx=pts.K1.x*sc, Ky=pts.K1.y*sc, Nx=pts.N.x*sc, Ny=pts.N.y*sc;
+      const cx=Kx+(Tx-Kx)*TP.c, cy=Ky+(Ty-Ky)*TP.c, al=Math.hypot(Tx-Kx,Ty-Ky)||1, a={x:(Tx-Kx)/al, y:(Ty-Ky)/al};
+      const nt=Math.hypot(Tx-Nx,Ty-Ny), rho=Math.max(6, TP.r*nt);
+      const up = ((Tx-cx)*(Ny-cy)-(Ty-cy)*(Nx-cx))>0 ? -1 : 1;   // rotation sense that turns the tip toward N (upward); checked visually
+      return {cx, cy, a, b:{x:-a.y, y:a.x}, rho, s:TP.s, n:TP.n, th:up*TP.rot*Math.PI/180}; })() : null;
   if (tip){ const R=tip.rho*3; x0=Math.max(0,Math.min(x0,Math.floor(tip.cx-R))); x1=Math.min(w-1,Math.max(x1,Math.ceil(tip.cx+R))); y0=Math.max(0,Math.min(y0,Math.floor(tip.cy-R))); y1=Math.min(h-1,Math.max(y1,Math.ceil(tip.cy+R))); }
   for(let y=y0;y<=y1;y++){ for(let x=x0;x<=x1;x++){
     let qx=x, qy=y;
-    if (tip){ const dx=x-tip.cx, dy=y-tip.cy, u=dx*tip.a.x+dy*tip.a.y, v=dx*tip.b.x+dy*tip.b.y, r2=(u*u+v*v)/(tip.rho*tip.rho);
-      if (r2<9){ const k=1+tip.s*Math.exp(-r2); qx=tip.cx+u*tip.a.x+v*k*tip.b.x; qy=tip.cy+u*tip.a.y+v*k*tip.b.y; } }
+    if (tip){ const dx=x-tip.cx, dy=y-tip.cy, r2=(dx*dx+dy*dy)/(tip.rho*tip.rho);
+      if (r2<9){ const g=Math.exp(-r2), u=dx*tip.a.x+dy*tip.a.y, v=(dx*tip.b.x+dy*tip.b.y)*(1+tip.n*g), sc2=1+tip.s*g;   // sample farther out → smaller, narrower lobule
+        const ux=(u*tip.a.x+v*tip.b.x)*sc2, uy=(u*tip.a.y+v*tip.b.y)*sc2, t=-tip.th*g, c=Math.cos(t), sn=Math.sin(t);   // and from the rotated-back position → upturned
+        qx=tip.cx+ux*c-uy*sn; qy=tip.cy+ux*sn+uy*c; } }
     const cw=chinW(qx,qy); let fx=cw*cd.x, fy=cw*cd.y;
     if (nose){ const nv=nose.at(qx,qy); if (nv){ fx+=nv.x; fy+=nv.y; } }
     let sw=0, gx=0, gy=0; for(let i=0;i<n;i++){ const c=ctrl[i], g=Math.exp(-((qx-c.x)**2+(qy-c.y)**2)/c.s2); sw+=g; gx+=c.dx*g; gy+=c.dy*g; } const nm=Math.max(1,sw); fx+=gx/nm; fy+=gy/nm;
