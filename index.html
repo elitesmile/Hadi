@@ -989,11 +989,14 @@ function simulate(){
   $('simImg').src = cv2.toDataURL('image/jpeg', 0.9);
   // components + table
   const lbl=[]; const ch=(on,txt)=>lbl.push(`<span class="chip ${on?'c-bad':'c-ok'}">${txt}</span>`);
-  ch(move.nose, move.nose ? (D.n>0?'Nose reduced':'Nose augmented') : 'Nose unchanged');
-  if (move.dorsum) ch(true, dors.main.kind==='hump'?'Dorsal hump reduced':'Dorsum augmented'); else ch(false,'Dorsum unchanged');
-  ch(move.chin, move.chin ? (D.c>0?'Chin advanced':'Chin set back') : 'Chin unchanged');
-  ch(move.U, move.U ? (D.u>0?'Upper lip retracted':'Upper lip advanced') : 'Upper lip unchanged');
-  ch(move.L, move.L ? (D.l>0?'Lower lip retracted':'Lower lip advanced') : 'Lower lip unchanged');
+  // how far each point actually moved: its rotation about N in degrees (anterior +), measured on the original N–C axis
+  const rot = k => thetaIn(T[k], pts.N, pts.C) - thetaIn(pts[k], pts.N, pts.C), deg = v => `${f1(Math.abs(v))}°`;
+  const mv = (on, k, fwd, back, none) => { if (!on) return ch(false, none); const r=rot(k); if (Math.abs(r)<0.05) return ch(false, none); ch(true, `${r>0?fwd:back} ${deg(r)}`); };
+  mv(move.nose, 'K', 'Nose augmented', 'Nose reduced', 'Nose unchanged');
+  if (move.dorsum) ch(true, `${dors.main.kind==='hump'?'Dorsal hump reduced':'Dorsum augmented'} ${f1(dors.main.pct)}%`); else ch(false,'Dorsum unchanged');
+  mv(move.chin, 'C', 'Chin advanced', 'Chin set back', 'Chin unchanged');
+  mv(move.U, 'U', 'Upper lip advanced', 'Upper lip retracted', 'Upper lip unchanged');
+  mv(move.L, 'L', 'Lower lip advanced', 'Lower lip retracted', 'Lower lip unchanged');
   $('simComp').innerHTML=lbl.join('');
   const b = k=>theta(pts[k]), a = k=>thetaIn(T[k], T.N, T.C);
   const rowsS=[['C–N–K',b('K'),a('K'),30],['K–N–U',b('K')-b('U'),a('K')-a('U'),22],['U–N–C',b('U'),a('U'),8],['K–N–L',b('K')-b('L'),a('K')-a('L'),26],['L–N–C',b('L'),a('L'),4],['L–N–U',b('U')-b('L'),a('U')-a('L'),4]];
