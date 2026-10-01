@@ -661,16 +661,18 @@ function measure(){
 }
 function diagnose(t){
   const dK=t.K-30, dU=t.U-8, dL=t.L-4;
-  const cands=[0,dK,dU,dL,(dK+dU+dL)/3];
+  const nMax=Math.max(0, (t.K-t.K1)-40);   // the nose may not be reduced below K1–N–K = 40°
+  const cands=[0,dK,dU,dL,(dK+dU+dL)/3,dK-nMax];
   let best=null;
   cands.forEach((c,i)=>{
-    const r={c, n:dK-c, u:dU-c, l:dL-c};
+    const r={c, n:dK-c, u:dU-c, l:dL-c, limited:false};
+    if (r.n>nMax+1e-9){ r.n=nMax; r.c=dK-nMax; r.u=dU-r.c; r.l=dL-r.c; r.limited=true; }   // rest of C–N–K goes to the chin; lips follow the new chin
     const cnt=(Math.abs(r.c)>tol)+(Math.abs(r.n)>tol)+(Math.abs(r.u)>tol)+(Math.abs(r.l)>tol);
     const mag=Math.abs(r.n)+Math.abs(r.u)+Math.abs(r.l)+Math.abs(r.c);
     const sc=cnt*100 + mag + (i===0?-0.01:0);
     if(!best||sc<best.sc) best={...r,sc,cnt};
   });
-  return {dK,dU,dL,...best};
+  return {dK,dU,dL,nMax,...best};
 }
 const f1 = v => { const r=Math.round(v*10)/10; return (r===0?0:r).toFixed(1); };
 const sgn = v => { const r=Math.round(v*10)/10; return (r>0?'+':r<0?'−':'±') + f1(Math.abs(r)); };
@@ -802,8 +804,7 @@ function renderResults(){
 function renderVerdict(D,t){
   const items=[], dev=[];
   if (Math.abs(D.n)>tol){ dev.push(D.n>0?`Nose over-projected by ${f1(D.n)}°`:`Nose under-projected by ${f1(-D.n)}°`);
-    const nMax = t.K - Math.max(30, t.K1+40);   // reduction allowed before K1–N–K drops below 40°
-    items.push(['Nose', D.n>0?(nMax<D.n-0.05 ? (nMax>0.05 ? `<b>Nose reduction</b> limited to about ${f1(nMax)}° (of ${f1(D.n)}° needed for C–N–K 30°), so that K1–N–K does not fall below 40°.` : `<b>No nose reduction</b>: K1–N–K is already at or below 40°, so reducing the nose would make it too small; balance the profile with the other components.`) : `<b>Nose reduction</b> (reduction rhinoplasty) of about ${f1(D.n)}° of tip projection.`):`<b>Nose augmentation</b> (augmentation rhinoplasty) of about ${f1(-D.n)}° of tip projection.`]); }
+    items.push(['Nose', D.n>0 ? (D.limited ? `<b>Nose reduction</b> limited to about ${f1(D.n)}° so that K1–N–K stays at 40°; ${Math.abs(D.c)>tol ? 'the rest of C–N–K is corrected by the chin, and the lips follow the new chin.' : `the remaining ${f1(Math.abs(D.c))}° of C–N–K is within the ±${f1(tol)}° tolerance.`}` : `<b>Nose reduction</b> (reduction rhinoplasty) of about ${f1(D.n)}° of tip projection.`) : `<b>Nose augmentation</b> (augmentation rhinoplasty) of about ${f1(-D.n)}° of tip projection.`]); }
   if (Math.abs(D.c)>tol){ dev.push(D.c>0?`Chin retrusive by ${f1(D.c)}°`:`Chin prominent by ${f1(-D.c)}°`);
     items.push(['Chin', D.c>0?`<b>Advance the chin</b> about ${f1(D.c)}° (genioplasty or mandibular advancement, as clinically indicated).`:`<b>Reduce or set back the chin</b> about ${f1(-D.c)}°, as clinically indicated.`]); }
   if (Math.abs(D.u)>tol){ dev.push(D.u>0?`Upper lip protrusive by ${f1(D.u)}°`:`Upper lip retrusive by ${f1(-D.u)}°`);
