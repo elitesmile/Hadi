@@ -802,7 +802,8 @@ function renderResults(){
 function renderVerdict(D,t){
   const items=[], dev=[];
   if (Math.abs(D.n)>tol){ dev.push(D.n>0?`Nose over-projected by ${f1(D.n)}°`:`Nose under-projected by ${f1(-D.n)}°`);
-    items.push(['Nose', D.n>0?`<b>Nose reduction</b> (reduction rhinoplasty) of about ${f1(D.n)}° of tip projection.`:`<b>Nose augmentation</b> (augmentation rhinoplasty) of about ${f1(-D.n)}° of tip projection.`]); }
+    const nMax = t.K - Math.max(30, t.K1+40);   // reduction allowed before K1–N–K drops below 40°
+    items.push(['Nose', D.n>0?(nMax<D.n-0.05 ? (nMax>0.05 ? `<b>Nose reduction</b> limited to about ${f1(nMax)}° (of ${f1(D.n)}° needed for C–N–K 30°), so that K1–N–K does not fall below 40°.` : `<b>No nose reduction</b>: K1–N–K is already at or below 40°, so reducing the nose would make it too small; balance the profile with the other components.`) : `<b>Nose reduction</b> (reduction rhinoplasty) of about ${f1(D.n)}° of tip projection.`):`<b>Nose augmentation</b> (augmentation rhinoplasty) of about ${f1(-D.n)}° of tip projection.`]); }
   if (Math.abs(D.c)>tol){ dev.push(D.c>0?`Chin retrusive by ${f1(D.c)}°`:`Chin prominent by ${f1(-D.c)}°`);
     items.push(['Chin', D.c>0?`<b>Advance the chin</b> about ${f1(D.c)}° (genioplasty or mandibular advancement, as clinically indicated).`:`<b>Reduce or set back the chin</b> about ${f1(-D.c)}°, as clinically indicated.`]); }
   if (Math.abs(D.u)>tol){ dev.push(D.u>0?`Upper lip protrusive by ${f1(D.u)}°`:`Upper lip retrusive by ${f1(-D.u)}°`);
@@ -879,14 +880,17 @@ function planTargets(){
   if (move.chin){ const r=D.c*Math.PI/180; T.C={x:N.x+nc*(Math.cos(r)*F0.a.x+Math.sin(r)*F0.b.x), y:N.y+nc*(Math.cos(r)*F0.a.y+Math.sin(r)*F0.b.y)}; }
   const F = frame(T.C);
   const toAngle = (P,deg) => { const along=(P.x-N.x)*F.a.x+(P.y-N.y)*F.a.y; const off=along*Math.tan(deg*Math.PI/180); return {x:N.x+along*F.a.x+off*F.b.x, y:N.y+along*F.a.y+off*F.b.y}; };
-  if (move.nose) T.K = toAngle(pts.K, 30);
+  let noseLimited=false;
+  if (move.nose){ let tgt=30; const curK=thetaIn(pts.K,N,T.C), minK=thetaIn(pts.K1,N,T.C)+40;   // K1–N–K must stay ≥ 40° (ideal)
+    if (curK>30 && minK>30){ tgt=Math.min(curK, minK); noseLimited=true; }
+    if (Math.abs(tgt-curK)<0.05) move.nose=false; else T.K = toAngle(pts.K, tgt); }
   if (move.U) T.U = toAngle(pts.U, 8);
   if (move.L) T.L = toAngle(pts.L, 4);
   // the tip T turns with K about N, so the whole nose follows the corrected bridge line
   if (move.nose){ const a0=Math.atan2(pts.K.y-N.y,pts.K.x-N.x), a1=Math.atan2(T.K.y-N.y,T.K.x-N.x), dA=a1-a0, rT=Math.hypot(pts.T.x-N.x,pts.T.y-N.y), aT=Math.atan2(pts.T.y-N.y,pts.T.x-N.x)+dA;
     T.T={x:N.x+rT*Math.cos(aT), y:N.y+rT*Math.sin(aT)}; }
   const extra=[];
-  return {T, move, D, extra};
+  return {T, move, D, extra, noseLimited};
 }
 function thetaIn(P, N, C){ const vx=C.x-N.x, vy=C.y-N.y, wx=P.x-N.x, wy=P.y-N.y; return -facing*Math.atan2(vx*wy-vy*wx, vx*wx+vy*wy)*180/Math.PI; }
 function solve(A, B){ // A n×n, B n×2 → X n×2 (Gaussian elimination)
@@ -985,7 +989,7 @@ function drawMarks(g, P, sc, ox, oy, lw){
 }
 function simulate(){
   if(!pts||!img) return;
-  const pl = planTargets(); const {T, move, D, extra} = pl;
+  const pl = planTargets(); const {T, move, D, extra, noseLimited} = pl;
   if (D.tooBig){ $('simImg').removeAttribute('src'); $('simComp').innerHTML='<span class="chip c-bad">Not simulated</span>'; $('simRows').innerHTML='';
     $('simHead').textContent='Correction too large to simulate: check the landmarks'; return; }
   const r = warpImage(T, extra, move.chin ? {dx:T.C.x-pts.C.x, dy:T.C.y-pts.C.y} : null, move.nose), sc = r.sc || Math.min(1, 1100/Math.max(imgW,imgH));
@@ -1000,13 +1004,14 @@ function simulate(){
   $('simImg').src = cv2.toDataURL('image/jpeg', 0.9);
   // components + table
   const lbl=[]; const ch=(on,txt)=>lbl.push(`<span class="chip ${on?'c-bad':'c-ok'}">${txt}</span>`);
-  ch(move.nose, move.nose ? (D.n>0?'Nose reduced (tip T moved back)':'Nose augmented (tip T moved forward)') : 'Nose unchanged');
+  ch(move.nose, move.nose ? (D.n>0?'Nose reduced (tip T moved back)':'Nose augmented (tip T moved forward)') : (noseLimited?'Nose kept (K1–N–K at 40°)':'Nose unchanged'));
+  if (noseLimited && move.nose) lbl.push('<span class="chip c-mild">Reduction limited: K1–N–K kept at 40°</span>');
   ch(move.chin, move.chin ? (D.c>0?'Chin advanced':'Chin set back') : 'Chin unchanged');
   ch(move.U, move.U ? (D.u>0?'Upper lip retracted':'Upper lip advanced') : 'Upper lip unchanged');
   ch(move.L, move.L ? (D.l>0?'Lower lip retracted':'Lower lip advanced') : 'Lower lip unchanged');
   $('simComp').innerHTML=lbl.join('');
   const b = k=>theta(pts[k]), a = k=>thetaIn(T[k], T.N, T.C);
-  const rowsS=[['C–N–K',b('K'),a('K'),30],['C–N–T (tip)',b('T'),a('T'),null],['K–N–U',b('K')-b('U'),a('K')-a('U'),22],['U–N–C',b('U'),a('U'),8],['K–N–L',b('K')-b('L'),a('K')-a('L'),26],['L–N–C',b('L'),a('L'),4],['L–N–U',b('U')-b('L'),a('U')-a('L'),4]];
+  const rowsS=[['C–N–K',b('K'),a('K'),30],['K1–N–K',b('K')-b('K1'),a('K')-a('K1'),40],['C–N–T (tip)',b('T'),a('T'),null],['K–N–U',b('K')-b('U'),a('K')-a('U'),22],['U–N–C',b('U'),a('U'),8],['K–N–L',b('K')-b('L'),a('K')-a('L'),26],['L–N–C',b('L'),a('L'),4],['L–N–U',b('U')-b('L'),a('U')-a('L'),4]];
   $('simRows').innerHTML=rowsS.map(([id,bv,av,iv])=>`<tr><td class="ang">${id}</td><td class="num">${f1(bv)}°</td><td class="num">${f1(av)}°</td><td class="num">${iv==null?'—':iv+'°'}</td></tr>`).join('');
   const anyMove = move.nose||move.chin||move.U||move.L;
   $('simHead').textContent = anyMove ? 'Profile after correction to the ideal angles' : 'No correction needed: the profile is already balanced';
