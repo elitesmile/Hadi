@@ -1535,7 +1535,16 @@ window.__asta = {enhanceImage, exportPdf, setDl:(d)=>{dlNS=d;}, prepImage, axisP
 </script>
 
 <script>
-if ('serviceWorker' in navigator) { window.addEventListener('load', () => { navigator.serviceWorker.register('sw.js').catch(()=>{}); }); }
+if ('serviceWorker' in navigator) {
+  // auto-update: when a new version is published, the new service worker takes over and the app reloads itself once
+  const hadController = !!navigator.serviceWorker.controller; let reloaded=false;
+  navigator.serviceWorker.addEventListener('controllerchange', () => { if (hadController && !reloaded){ reloaded=true; location.reload(); } });
+  window.addEventListener('load', () => { navigator.serviceWorker.register('sw.js').then(reg => {
+    const check = () => reg.update().catch(()=>{});
+    document.addEventListener('visibilitychange', () => { if (document.visibilityState==='visible') check(); });   // check when the app is reopened from the home screen
+    setInterval(check, 30*60*1000);
+  }).catch(()=>{}); });
+}
 </script>
 </body>
 </html>
