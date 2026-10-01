@@ -1,5 +1,5 @@
 // offline cache: the app works without internet once opened
-const CACHE = 'profile-nc-v14';
+const CACHE = 'profile-nc-v15';
 const MODELS = 'profile-models-v1';   // segmentation runtime + model: large, versioned URLs, kept across app updates
 const MODEL_HOSTS = ['cdn.jsdelivr.net', 'storage.googleapis.com'];
 const FILES = ['./', 'index.html', 'jspdf.umd.min.js', 'manifest.webmanifest', 'icon-180.png', 'icon-192.png', 'icon-512.png'];
