@@ -111,6 +111,9 @@ canvas#view{display:block;touch-action:none;-webkit-user-select:none;user-select
 .step .k{font-size:11px;color:var(--muted);font-weight:600;letter-spacing:.05em;text-transform:uppercase}
 .step .v{font-weight:600;margin-top:2px}
 .chip{display:inline-block;font-size:12px;font-weight:600;border-radius:999px;padding:2px 9px;white-space:nowrap}
+button.chip.tog{font:inherit;font-size:12px;font-weight:600;border:1px solid transparent;padding:4px 10px;cursor:pointer;line-height:1.3}
+button.chip.tog.c-bad{border-color:currentColor}
+button.chip.tog.c-ok{border-style:dashed;border-color:currentColor}
 .c-ok{background:var(--teal-soft);color:var(--teal)}
 .c-mild{background:var(--amber-soft);color:var(--amber)}
 .c-bad{background:var(--bad-soft);color:var(--bad)}
@@ -877,6 +880,7 @@ function renderMap(t){
 
 // ---------- before / after simulation ----------
 let simMode='plan', simTimer=0;
+const simOff={};   // components the user cancelled in the simulation (tap a chip to cancel / restore)
 function planTargets(){
   const {t}=measure(); const D=diagnose(t);
   const N=pts.N, C=pts.C, nc=Math.hypot(C.x-N.x,C.y-N.y);
@@ -884,6 +888,8 @@ function planTargets(){
   const all = simMode==='all';
   const LIM=15; ['c','n','u','l'].forEach(k=>{ if(Math.abs(D[k])>LIM) D.tooBig=true; });
   const move = { chin: all ? Math.abs(D.c)>0.05 : Math.abs(D.c)>tol, nose: all || Math.abs(D.n)>tol, U: all || Math.abs(D.u)>tol, L: all || Math.abs(D.l)>tol };
+  const want = {...move};   // what the plan would move before the user's cancellations
+  ['chin','nose','U','L'].forEach(k=>{ if (simOff[k]) move[k]=false; });
   const T = {}; ORDER.forEach(k=>T[k]={x:pts[k].x,y:pts[k].y});
   const F0 = frame(C);
   if (move.chin){ const r=D.c*Math.PI/180; T.C={x:N.x+nc*(Math.cos(r)*F0.a.x+Math.sin(r)*F0.b.x), y:N.y+nc*(Math.cos(r)*F0.a.y+Math.sin(r)*F0.b.y)}; }
@@ -895,6 +901,7 @@ function planTargets(){
   // dorsum: keep it on (or bring it to) the straight line from N to the new tip
   const extra=[]; const d=computeDorsum();
   move.dorsum = !!d && !d.unreliable && (all ? d.main.pct>0.3 : d.main.pct>DTOL);
+  want.dorsum = move.dorsum; if (simOff.dorsum) move.dorsum=false;
   if (d && !d.unreliable){
     const kx=T.K.x-N.x, ky=T.K.y-N.y, kl=Math.hypot(kx,ky), bx=facing*ky/kl, by=-facing*kx/kl;
     const ox=pts.K.x-N.x, oy=pts.K.y-N.y, ol=Math.hypot(ox,oy);
@@ -902,7 +909,7 @@ function planTargets(){
       const t={x:N.x+kx*q.f+bx*off, y:N.y+ky*q.f+by*off};
       if (Math.hypot(t.x-q.pt.x,t.y-q.pt.y)>0.3 || move.nose) extra.push({sx:q.pt.x,sy:q.pt.y,tx:t.x,ty:t.y}); });
   }
-  return {T, move, D, extra};
+  return {T, move, D, extra, want};
 }
 function thetaIn(P, N, C){ const vx=C.x-N.x, vy=C.y-N.y, wx=P.x-N.x, wy=P.y-N.y; return -facing*Math.atan2(vx*wy-vy*wx, vx*wx+vy*wy)*180/Math.PI; }
 function solve(A, B){ // A n×n, B n×2 → X n×2 (Gaussian elimination)
@@ -983,7 +990,7 @@ function drawMarks(g, P, sc, ox, oy, lw){
 }
 function simulate(){
   if(!pts||!img) return;
-  const pl = planTargets(); const {T, move, D, extra} = pl;
+  const pl = planTargets(); const {T, move, D, extra, want} = pl;
   if (D.tooBig){ $('simImg').removeAttribute('src'); $('simComp').innerHTML='<span class="chip c-bad">Not simulated</span>'; $('simRows').innerHTML='';
     $('simHead').textContent='Correction too large to simulate: check the landmarks'; return; }
   const r = warpImage(T, extra, move.chin ? {dx:T.C.x-pts.C.x, dy:T.C.y-pts.C.y} : null, move.nose||move.dorsum), sc = r.sc || Math.min(1, 1100/Math.max(imgW,imgH));
@@ -997,15 +1004,21 @@ function simulate(){
   g.fillText('Before', Math.round(band*0.3), band/2); g.fillText(`After · ${simMode==='all'?'all to ideal':'treatment plan'} (simulation)`, w+gap+Math.round(band*0.3), band/2);
   $('simImg').src = cv2.toDataURL('image/jpeg', 0.9);
   // components + table
-  const lbl=[]; const ch=(on,txt)=>lbl.push(`<span class="chip ${on?'c-bad':'c-ok'}">${txt}</span>`);
+  const lbl=[]; const ch=(on,txt,key)=>lbl.push(key ? `<button type="button" class="chip ${on?'c-bad':'c-ok'} tog" data-k="${key}" title="${on?'Tap to cancel this change':'Tap to restore this change'}">${txt}</button>` : `<span class="chip ${on?'c-bad':'c-ok'}">${txt}</span>`);
   // how far each point actually moved: its rotation about N in degrees (anterior +), measured on the original N–C axis
   const rot = k => thetaIn(T[k], pts.N, pts.C) - thetaIn(pts[k], pts.N, pts.C), deg = v => `${f1(Math.abs(v))}°`;
-  const mv = (on, k, fwd, back, none) => { if (!on) return ch(false, none); const r=rot(k); if (Math.abs(r)<0.05) return ch(false, none); ch(true, `${r>0?fwd:back} ${deg(r)}`); };
-  mv(move.nose, 'K', 'Nose augmented', 'Nose reduced', 'Nose unchanged');
-  if (move.dorsum) ch(true, `${dors.main.kind==='hump'?'Dorsal hump reduced':'Dorsum augmented'} ${f1(dors.main.pct)}%`); else ch(false,'Dorsum unchanged');
-  mv(move.chin, 'C', 'Chin advanced', 'Chin set back', 'Chin unchanged');
-  mv(move.U, 'U', 'Upper lip advanced', 'Upper lip retracted', 'Upper lip unchanged');
-  mv(move.L, 'L', 'Lower lip advanced', 'Lower lip retracted', 'Lower lip unchanged');
+  const mv = (key, k, fwd, back, name) => {
+    if (want[key] && simOff[key]) return ch(false, `${name}: change cancelled`, key);          // green, tap to restore
+    if (!move[key]) return ch(false, `${name} unchanged`);
+    const r=rot(k); if (Math.abs(r)<0.05) return ch(false, `${name} unchanged`);
+    ch(true, `${r>0?fwd:back} ${deg(r)}`, key); };                                           // red, tap to cancel
+  mv('nose', 'K', 'Nose augmented', 'Nose reduced', 'Nose');
+  if (want.dorsum && simOff.dorsum) ch(false, 'Dorsum: change cancelled', 'dorsum');
+  else if (move.dorsum) ch(true, `${dors.main.kind==='hump'?'Dorsal hump reduced':'Dorsum augmented'} ${f1(dors.main.pct)}%`, 'dorsum'); else ch(false,'Dorsum unchanged');
+  mv('chin', 'C', 'Chin advanced', 'Chin set back', 'Chin');
+  mv('U', 'U', 'Upper lip advanced', 'Upper lip retracted', 'Upper lip');
+  mv('L', 'L', 'Lower lip advanced', 'Lower lip retracted', 'Lower lip');
+  if (lbl.some(x=>x.includes('data-k'))) lbl.push('<span class="muted small" style="flex-basis:100%">Tap a change to cancel it (green) or restore it (red).</span>');
   $('simComp').innerHTML=lbl.join('');
   const b = k=>theta(pts[k]), a = k=>thetaIn(T[k], T.N, T.C);
   const rowsS=[['C–N–K',b('K'),a('K'),30],['K–N–U',b('K')-b('U'),a('K')-a('U'),22],['U–N–C',b('U'),a('U'),8],['K–N–L',b('K')-b('L'),a('K')-a('L'),26],['L–N–C',b('L'),a('L'),4],['L–N–U',b('U')-b('L'),a('U')-a('L'),4]];
@@ -1014,6 +1027,7 @@ function simulate(){
   $('simHead').textContent = anyMove ? 'Profile after correction to the ideal angles' : 'No correction needed: the profile is already balanced';
 }
 function scheduleSim(){ clearTimeout(simTimer); simTimer=setTimeout(()=>{ if(!dragging) simulate(); }, 250); }
+$('simComp').addEventListener('click',e=>{ const b=e.target.closest('[data-k]'); if(!b) return; const k=b.dataset.k; simOff[k]=!simOff[k]; simulate(); });
 $('modePlan').addEventListener('click',()=>{ simMode='plan'; $('modePlan').setAttribute('aria-pressed','true'); $('modeAll').setAttribute('aria-pressed','false'); simulate(); });
 $('modeAll').addEventListener('click',()=>{ simMode='all'; $('modeAll').setAttribute('aria-pressed','true'); $('modePlan').setAttribute('aria-pressed','false'); simulate(); });
 $('simMarks').addEventListener('change',simulate);
@@ -1513,7 +1527,7 @@ $('greenBtn').addEventListener('click',()=>{ if (greenOn && img===origImg && !is
   greenOn=!greenOn; $('greenBtn').setAttribute('aria-pressed', greenOn); if(!greenOn) greenJob++; applyGreen(); });
 function loadImage(src, sample){
   const im=new Image();
-  const start=(use)=>{ img=use; origImg=use; imgW=use.naturalWidth; imgH=use.naturalHeight; isSample=sample; imPrep=null; dorsKey=''; dors=null; layoutCanvas(); runDetect(false); applyGreen();
+  const start=(use)=>{ for(const k in simOff) delete simOff[k]; img=use; origImg=use; imgW=use.naturalWidth; imgH=use.naturalHeight; isSample=sample; imPrep=null; dorsKey=''; dors=null; layoutCanvas(); runDetect(false); applyGreen();
     if (!sample && enhInfo){ const t=$('statusText').textContent; status(`Photo enhanced (${enhInfo.scale>1.05?'upscaled ×'+f1(enhInfo.scale)+', ':''}contrast and edge sharpness improved). ${t}`, $('status').classList.contains('err')?'err':'warn'); } };
   im.onload=()=>{
     if (sample){ enhInfo=null; start(im); return; }
