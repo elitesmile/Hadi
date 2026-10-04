@@ -889,7 +889,6 @@ function planTargets(){
   const LIM=15; ['c','n','u','l'].forEach(k=>{ if(Math.abs(D[k])>LIM) D.tooBig=true; });
   const move = { chin: all ? Math.abs(D.c)>0.05 : Math.abs(D.c)>tol, nose: all || Math.abs(D.n)>tol, U: all || Math.abs(D.u)>tol, L: all || Math.abs(D.l)>tol };
   const want = {...move};   // what the plan would move before the user's cancellations
-  ['chin','nose','U','L'].forEach(k=>{ if (simOff[k]) move[k]=false; });
   const T = {}; ORDER.forEach(k=>T[k]={x:pts[k].x,y:pts[k].y});
   const F0 = frame(C);
   if (move.chin){ const r=D.c*Math.PI/180; T.C={x:N.x+nc*(Math.cos(r)*F0.a.x+Math.sin(r)*F0.b.x), y:N.y+nc*(Math.cos(r)*F0.a.y+Math.sin(r)*F0.b.y)}; }
@@ -898,6 +897,8 @@ function planTargets(){
   if (move.nose) T.K = toAngle(pts.K, 30);
   if (move.U) T.U = toAngle(pts.U, 8);
   if (move.L) T.L = toAngle(pts.L, 4);
+  // independence: targets above come from the full plan; a cancelled component just stays put, the others keep their own amounts
+  [['chin','C'],['nose','K'],['U','U'],['L','L']].forEach(([m,k])=>{ if (simOff[m]){ move[m]=false; T[k]={x:pts[k].x,y:pts[k].y}; } });
   // dorsum: keep it on (or bring it to) the straight line from N to the new tip
   const extra=[]; const d=computeDorsum();
   move.dorsum = !!d && !d.unreliable && (all ? d.main.pct>0.3 : d.main.pct>DTOL);
@@ -930,10 +931,11 @@ function warpImage(T, extra, chin, refine){
   const ss=(e0,e1,x)=>{ const q=Math.max(0,Math.min(1,(x-e0)/(e1-e0))); return q*q*(3-2*q); };
   const dm=Math.hypot(cd.x,cd.y)/NC;                 // chin shift as a fraction of N–C
   const t1=tL+Math.max(0.1,(1-tL)*0.85);              // full movement reached at the chin prominence
+  const tC0=tL+0.35*(1-tL);                           // the chin block starts below the lower lip (labiomental fold), so the lip itself stays put
   const tb=1.03, te=tb+Math.max(0.22, 2.4*dm);        // fade below the chin (submental), never a flat slab
   const ub0=-Math.max(0.42, 0.2+3*dm), ub1=-0.12;     // fade toward the back of the jaw
   const chinW=(x,y)=>{ if(!hasChin) return 0; const dx=x-Ns.x, dy=y-Ns.y, t=(dx*ua.x+dy*ua.y)/NC, u=(dx*ub.x+dy*ub.y)/NC;
-    return ss(tL+0.02,t1,t)*(1-ss(tb,te,t))*ss(ub0,ub1,u); };
+    return ss(tC0,t1,t)*(1-ss(tb,te,t))*ss(ub0,ub1,u); };
   // nose block: the whole nose (bridge, tip, lobule, columella) is sheared as one piece about its base line N–K1.
   // Each pixel moves by the tip displacement scaled by its height above the base line, so the tip lands on the
   // target angle while the alar base, subnasale and lip stay put and the tip keeps its own shape (no pinching, no smear).
@@ -949,7 +951,11 @@ function warpImage(T, extra, chin, refine){
         const k=lam*mu; return k<1e-3 ? null : {x:dK.x*k, y:dK.y*k}; } }; })();
   const noseAt=(x,y)=>{ const v=nose&&nose.at(x,y); return v||{x:0,y:0}; };
   const RAD={N:0.15,K:0.24,K1:0.15,U:0.13,U1:0.15,L:0.13,C:0.2};
-  const ctrl=ORDER.map(k=>{ const x=T[k].x*sc, y=T[k].y*sc, w=chinW(x,y), nv=noseAt(x,y); return {x, y, r:RAD[k], dx:(T[k].x-pts[k].x)*sc - w*cd.x - nv.x, dy:(T[k].y-pts[k].y)*sc - w*cd.y - nv.y}; });
+  // each lip moves on its own side of the lip line (stomion ≈ midway between U and L along N–C): the upper lip's pull fades out
+  // below it and the lower lip's above it, so moving one lip does not drag the other
+  const tAx=(x,y)=>((x-Ns.x)*ua.x+(y-Ns.y)*ua.y)/NC, tU=tAx(pts.U.x*sc,pts.U.y*sc), tS=(tU+tL)/2, mS=Math.max(0.004,0.22*Math.abs(tL-tU));
+  const GATE={U:(x,y)=>1-ss(tS-mS,tS+mS,tAx(x,y)), L:(x,y)=>ss(tS-mS,tS+mS,tAx(x,y))};
+  const ctrl=ORDER.map(k=>{ const x=T[k].x*sc, y=T[k].y*sc, w=chinW(x,y), nv=noseAt(x,y); return {x, y, r:RAD[k], gate:GATE[k]||null, dx:(T[k].x-pts[k].x)*sc - w*cd.x - nv.x, dy:(T[k].y-pts[k].y)*sc - w*cd.y - nv.y}; });
   (extra||[]).forEach(e=>{ const x=e.tx*sc, y=e.ty*sc, w=chinW(x,y), nv=noseAt(x,y); ctrl.push({x, y, r:0.11, dx:(e.tx-e.sx)*sc - w*cd.x - nv.x, dy:(e.ty-e.sy)*sc - w*cd.y - nv.y}); });
   const maxD=Math.max(...ctrl.map(c=>Math.hypot(c.dx,c.dy)));
   if (maxD<0.5 && !hasChin && !nose) return {src, out};
@@ -967,7 +973,7 @@ function warpImage(T, extra, chin, refine){
   for(let y=y0;y<=y1;y++){ for(let x=x0;x<=x1;x++){
     const cw=chinW(x,y); let fx=cw*cd.x, fy=cw*cd.y;
     if (nose){ const nv=nose.at(x,y); if (nv){ fx+=nv.x; fy+=nv.y; } }
-    let sw=0, gx=0, gy=0; for(let i=0;i<n;i++){ const c=ctrl[i], g=Math.exp(-((x-c.x)**2+(y-c.y)**2)/c.s2); sw+=g; gx+=c.dx*g; gy+=c.dy*g; } const nm=Math.max(1,sw); fx+=gx/nm; fy+=gy/nm;
+    let sw=0, gx=0, gy=0; for(let i=0;i<n;i++){ const c=ctrl[i]; let g=Math.exp(-((x-c.x)**2+(y-c.y)**2)/c.s2); if (c.gate) g*=c.gate(x,y); sw+=g; gx+=c.dx*g; gy+=c.dy*g; } const nm=Math.max(1,sw); fx+=gx/nm; fy+=gy/nm;
     if (Math.abs(fx)<0.02 && Math.abs(fy)<0.02) continue;
     { const bd=Math.min(x,y,w-1-x,h-1-y), q=Math.max(0,Math.min(1,bd/edgeM)), fb=q*q*(3-2*q); fx*=fb; fy*=fb; }
     if (Math.abs(fx)<0.02 && Math.abs(fy)<0.02) continue;
