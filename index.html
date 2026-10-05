@@ -200,6 +200,7 @@ textarea#csv{width:100%;min-height:90px;font-family:var(--mono);font-size:11px;c
             <button type="button" class="rt" data-d="1,0" aria-label="Move right">&#8250;</button>
             <button type="button" class="dn" data-d="0,1" aria-label="Move down">&#8964;</button>
           </div>
+          <button type="button" class="close" id="nudgeSnap" style="margin-bottom:6px">Snap to edge</button>
           <button type="button" class="close" id="nudgeClose">Close</button>
         </div>
         <canvas id="view" tabindex="0" aria-label="Profile photograph with landmarks. Drag a landmark to move it; arrow keys nudge the selected landmark."></canvas>
@@ -995,9 +996,9 @@ function warpImage(T, extra, chin, refine){
       if (r2<9){ const g=Math.exp(-r2), u=dx*tip.a.x+dy*tip.a.y, v0=dx*tip.b.x+dy*tip.b.y;
         // taper: half-width shrinks toward the apex (and just beyond it), fading out sideways so the cheek and alar base stay put
         const tq=Math.max(0,Math.min(1,(u+0.6*tip.rho)/(tip.uA+0.6*tip.rho))), side=Math.exp(-(v0*v0)/(2*(1.3*tip.rho)**2));
-        const v=v0*(1+tip.n*Math.pow(tq,tip.pw)*side), sc2=1+tip.s*g;
-        const ux=(u*tip.a.x+v*tip.b.x)*sc2, uy=(u*tip.a.y+v*tip.b.y)*sc2, t=-tip.th*g, c=Math.cos(t), sn=Math.sin(t);
-        qx=tip.cx+ux*c-uy*sn; qy=tip.cy+ux*sn+uy*c; } }
+        const v=v0*(1+tip.n*Math.pow(tq,tip.pw)*side), sc2=1+tip.s*g; const ua=u-tip.uA;   // u measured from the apex: scaling and rotation pivot there
+        const ux=(ua*tip.a.x+v*tip.b.x)*sc2, uy=(ua*tip.a.y+v*tip.b.y)*sc2, t=-tip.th*g, c=Math.cos(t), sn=Math.sin(t), ax=tip.cx+tip.uA*tip.a.x, ay=tip.cy+tip.uA*tip.a.y;
+        qx=ax+ux*c-uy*sn; qy=ay+ux*sn+uy*c; } }
     const cw=chinW(qx,qy); let fx=cw*cd.x, fy=cw*cd.y;
     if (nose){ const nv=nose.at(qx,qy); if (nv){ fx+=nv.x; fy+=nv.y; } }
     let sw=0, gx=0, gy=0; for(let i=0;i<n;i++){ const c=ctrl[i]; let g=Math.exp(-((qx-c.x)**2+(qy-c.y)**2)/c.s2); if (c.gate) g*=c.gate(qx,qy); sw+=g; gx+=c.dx*g; gy+=c.dy*g; } const nm=Math.max(1,sw); fx+=gx/nm; fy+=gy/nm;
@@ -1052,6 +1053,7 @@ function simulate(){
   mv('chin', 'C', 'Chin advanced', 'Chin set back', 'Chin');
   mv('U', 'U', 'Upper lip advanced', 'Upper lip retracted', 'Upper lip');
   mv('L', 'L', 'Lower lip advanced', 'Lower lip retracted', 'Lower lip');
+  { const e=skinEdgeAlong('K'); const nk=Math.hypot(pts.K.x-pts.N.x,pts.K.y-pts.N.y); if (e && Math.abs(e.off)>0.015*nk) lbl.push(`<button type="button" class="chip c-mild tog" data-snap="K">K is ${e.off<0?'in front of the nose (in the background)':'inside the nose'} by ${f1(Math.abs(e.off)/nk*100)}% of N–K: tap to snap K to the tip</button>`); }
   if (lbl.some(x=>x.includes('data-k'))) lbl.push('<span class="muted small" style="flex-basis:100%">Tap a change to cancel it (green) or restore it (red).</span>');
   $('simComp').innerHTML=lbl.join('');
   const b = k=>theta(pts[k]), a = k=>thetaIn(T[k], T.N, T.C);
@@ -1061,7 +1063,8 @@ function simulate(){
   $('simHead').textContent = anyMove ? 'Profile after correction to the ideal angles' : 'No correction needed: the profile is already balanced';
 }
 function scheduleSim(){ clearTimeout(simTimer); simTimer=setTimeout(()=>{ if(!dragging) simulate(); }, 250); }
-$('simComp').addEventListener('click',e=>{ const b=e.target.closest('[data-k]'); if(!b) return; const k=b.dataset.k; simOff[k]=!simOff[k]; simulate(); });
+$('simComp').addEventListener('click',e=>{ const sn=e.target.closest('[data-snap]'); if(sn){ if(snapToEdge(sn.dataset.snap)) status('K snapped onto the nose tip. Results updated.'); return; }
+  const b=e.target.closest('[data-k]'); if(!b) return; const k=b.dataset.k; simOff[k]=!simOff[k]; simulate(); });
 $('modePlan').addEventListener('click',()=>{ simMode='plan'; $('modePlan').setAttribute('aria-pressed','true'); $('modeAll').setAttribute('aria-pressed','false'); simulate(); });
 $('modeAll').addEventListener('click',()=>{ simMode='all'; $('modeAll').setAttribute('aria-pressed','true'); $('modePlan').setAttribute('aria-pressed','false'); simulate(); });
 $('simMarks').addEventListener('change',simulate);
@@ -1290,6 +1293,8 @@ function placeNudge(){ // same side as the magnifier (behind the head), but belo
 function openNudge(on){ if(on) placeNudge(); $('nudge').hidden=!on; $('nudgeBtn').setAttribute('aria-pressed', on); if(on && !sel && pts){ sel='K'; } draw(); if(on) status('Fine adjust: pick a landmark, then tap or hold the arrows. Zoom in for even finer steps.'); }
 $('nudgeBtn').addEventListener('click',()=>openNudge($('nudge').hidden));
 $('nudgeClose').addEventListener('click',()=>openNudge(false));
+$('nudgeSnap').addEventListener('click',()=>{ if(!sel){ status('Select a landmark first.','warn'); return; } if(!(greenOn && img!==origImg)){ status('Snap to edge needs the green background (switch it on).','warn'); return; }
+  if (snapToEdge(sel)) status(`${sel} snapped onto the skin edge along its ray from N.`); else status(`Could not find the skin edge near ${sel}.`,'warn'); });
 $('nudgeSel').addEventListener('change',e=>{ sel=e.target.value||null; draw(); });
 $('nudge').querySelectorAll('.stepseg button').forEach(b=>b.addEventListener('click',()=>{ nudgeStep=+b.dataset.step; $('nudge').querySelectorAll('.stepseg button').forEach(x=>x.setAttribute('aria-pressed', x===b)); }));
 function nudgeOnce(dx,dy){ if(!pts||!sel||!pts[sel]) return; const st=nudgeStep/(dispK*vz); // step in screen px, so zooming in gives finer moves
@@ -1540,6 +1545,20 @@ function greenFromMask(im, M){
   return composeGreen(im, al, w, h);
 }
 let greenJob=0;
+// where the skin edge is along the ray from N through landmark k (needs the green background): image px, or null
+let edgeCv=null, edgeKey='';
+function skinEdgeAlong(k){
+  if (!greenOn || !img || img===origImg || !pts || !pts.N || !pts[k]) return null;
+  const sc=Math.min(1, 900/Math.max(imgW,imgH)), w=Math.round(imgW*sc), h=Math.round(imgH*sc);
+  const key=img.src.length+':'+w;
+  if (edgeKey!==key){ edgeCv=document.createElement('canvas'); edgeCv.width=w; edgeCv.height=h; const g=edgeCv.getContext('2d',{willReadFrequently:true}); g.drawImage(img,0,0,w,h); edgeCv.data=g.getImageData(0,0,w,h).data; edgeKey=key; }
+  const d=edgeCv.data, N=pts.N, P=pts[k], dx=P.x-N.x, dy=P.y-N.y, L=Math.hypot(dx,dy)||1, ux=dx/L, uy=dy/L;
+  const isGreen=(x,y)=>{ const xi=Math.round(x*sc), yi=Math.round(y*sc); if(xi<0||yi<0||xi>=w||yi>=h) return true; const i=(yi*w+xi)*4; return d[i+1]>110 && d[i]<100 && d[i+2]<130; };
+  // walk inward from well outside the point until the first skin pixel
+  for (let t=0.35*L; t>=-0.35*L; t-=0.5){ const x=P.x+ux*t, y=P.y+uy*t; if (!isGreen(x,y)){ return {x, y, off:t}; } }
+  return null;
+}
+function snapToEdge(k){ const e=skinEdgeAlong(k); if(!e) return false; pts[k].x=e.x; pts[k].y=e.y; pts[k].est=false; pts[k].manual=true; dorsKey=''; draw(); renderResults(); return true; }
 async function applyGreen(){
   if (isSample || !origImg) return;
   const job=++greenJob, src=origImg;
