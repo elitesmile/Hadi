@@ -894,7 +894,10 @@ function planTargets(){
   if (move.chin){ const r=D.c*Math.PI/180; T.C={x:N.x+nc*(Math.cos(r)*F0.a.x+Math.sin(r)*F0.b.x), y:N.y+nc*(Math.cos(r)*F0.a.y+Math.sin(r)*F0.b.y)}; }
   const F = frame(T.C);
   const toAngle = (P,deg) => { const along=(P.x-N.x)*F.a.x+(P.y-N.y)*F.a.y; const off=along*Math.tan(deg*Math.PI/180); return {x:N.x+along*F.a.x+off*F.b.x, y:N.y+along*F.a.y+off*F.b.y}; };
-  if (move.nose) T.K = toAngle(pts.K, 30);
+  // nose: the tip goes to the NEAREST point on the 30° ray from N (back and slightly up), not straight back at the same height.
+  // It is the shortest move that reaches the ideal angle, so the lobule and columella are compressed least and the angle under the tip stays open.
+  if (move.nose){ const r30=30*Math.PI/180, rx=Math.cos(r30)*F.a.x+Math.sin(r30)*F.b.x, ry=Math.cos(r30)*F.a.y+Math.sin(r30)*F.b.y, pr=(pts.K.x-N.x)*rx+(pts.K.y-N.y)*ry;
+    T.K = (window.__noseOld ? toAngle(pts.K, 30) : {x:N.x+pr*rx, y:N.y+pr*ry}); }
   if (move.U) T.U = toAngle(pts.U, 8);
   if (move.L) T.L = toAngle(pts.L, 4);
   // independence: targets above come from the full plan; a cancelled component just stays put, the others keep their own amounts
@@ -919,6 +922,7 @@ function solve(A, B){ // A n×n, B n×2 → X n×2 (Gaussian elimination)
     const d=M[c][c]||1e-9; for(let r=0;r<n;r++){ if(r===c) continue; const f=M[r][c]/d; for(let k=c;k<n+2;k++) M[r][k]-=f*M[c][k]; } }
   return M.map((r,i)=>[r[n]/r[i], r[n+1]/r[i]]);
 }
+const TIPR=0.5;   // share of the nose height (base line → tip) that moves as a rigid tip block
 function warpImage(T, extra, chin, refine){
   const sc=Math.min(1, 1100/Math.max(imgW,imgH)), w=Math.round(imgW*sc), h=Math.round(imgH*sc);
   const src=document.createElement('canvas'); src.width=w; src.height=h; const sg=src.getContext('2d',{willReadFrequently:true}); sg.drawImage(img,0,0,w,h);
@@ -946,7 +950,10 @@ function warpImage(T, extra, chin, refine){
     const ax=Kt.x-Ns.x, ay=Kt.y-Ns.y, aL=Math.hypot(ax,ay)||1, a={x:ax/aL,y:ay/aL};
     const bK=((Kt.x-Ns.x)*e.x+(Kt.y-Ns.y)*e.y)/eL;
     return { at:(x,y)=>{ const px=x-Ns.x, py=y-Ns.y, d=px*nb.x+py*nb.y; if (d<=0) return null;
-        const lam=Math.min(1,d/hK), s=(px*a.x+py*a.y)/aL, b=(px*e.x+py*e.y)/eL;
+        // the tip region (outer part of the nose) translates rigidly, so the lobule keeps its shape and its acute angle;
+        // only the part between the base line and the tip region is compressed / stretched
+        const tq=d/(hK*(1-TIPR)); const lam = tq<0.8 ? tq : tq<1.2 ? 0.8+0.4*(((tq-0.8)/0.4)-(((tq-0.8)/0.4)**2)/2) : 1;
+        const s=(px*a.x+py*a.y)/aL, b=(px*e.x+py*e.y)/eL;
         const mu=ss(-0.15,0.06,b)*(1-ss(Math.max(bK,1)+0.05,Math.max(bK,1)+0.4,b))*(1-ss(1.05,1.6,s));
         const k=lam*mu; return k<1e-3 ? null : {x:dK.x*k, y:dK.y*k}; } }; })();
   const noseAt=(x,y)=>{ const v=nose&&nose.at(x,y); return v||{x:0,y:0}; };
