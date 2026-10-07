@@ -210,6 +210,7 @@ textarea#csv{width:100%;min-height:90px;font-family:var(--mono);font-size:11px;c
       <div class="legend">
         <span><i class="sw" style="background:#17212b;box-shadow:0 0 0 2px #fff inset"></i>N, C · axis</span>
         <span><i class="sw" style="background:#0e7c74"></i>K, U, L · modifiable</span>
+        <span><i class="sw" style="background:#c0392b"></i>D1–D3 · bridge points: put them on the nasal dorsum</span>
         <span><i class="sw" style="background:#c98a1e"></i>K1, U1 · embedded</span>
         <span><i class="sw" style="border:2px dashed #c98a1e"></i>estimate, check it</span>
         <span>Pinch or +/− to zoom the photo · drag empty space to move it</span>
@@ -305,9 +306,11 @@ textarea#csv{width:100%;min-height:90px;font-family:var(--mono);font-size:11px;c
 'use strict';
 // ---------- constants from the paper ----------
 const IDEAL = {K:30, U:8, L:4, K1:-10, U1:-10};
-const ORDER = ['N','K','K1','U','U1','L','C'];
-const NAMES = {N:'Soft-tissue nasion',K:'Pronasale (nose tip)',K1:'Posterior nasal point (alar base)',U:'Upper lip',U1:'Posterior lip point (commissure)',L:'Lower lip',C:'Soft-tissue pogonion'};
-const COL = {N:'#17212b',C:'#17212b',K:'#0e7c74',U:'#0e7c74',L:'#0e7c74',K1:'#c98a1e',U1:'#c98a1e'};
+const DET = ['N','K','K1','U','U1','L','C'];        // the seven analysis landmarks (detected / placed)
+const DORS = ['D1','D2','D3'];                      // three bridge points the user puts on the nasal dorsum, between N and K
+const ORDER = [...DET, ...DORS];
+const NAMES = {N:'Soft-tissue nasion',K:'Pronasale (nose tip)',K1:'Posterior nasal point (alar base)',D1:'Bridge point 1 (upper dorsum)',D2:'Bridge point 2 (mid dorsum)',D3:'Bridge point 3 (lower dorsum)',U:'Upper lip',U1:'Posterior lip point (commissure)',L:'Lower lip',C:'Soft-tissue pogonion'};
+const COL = {D1:'#c0392b',D2:'#c0392b',D3:'#c0392b',N:'#17212b',C:'#17212b',K:'#0e7c74',U:'#0e7c74',L:'#0e7c74',K1:'#c98a1e',U1:'#c98a1e'};
 
 // ---------- state ----------
 let img = null, imgW = 0, imgH = 0, isSample = true;
@@ -602,26 +605,39 @@ function guidedDetect(image, Nimg, Cimg, pref){
 const DTOL=2; // % of N–K length treated as straight
 let imPrep=null, dors=null, dorsKey='';
 function getPrep(){ if(!imPrep) imPrep=prepImage(origImg||img,1400); return imPrep; }
+// automatic first guess for the bridge points: old edge trace (only used when there is no green background to read the skin from)
+function traceDorsumOffsets(fr){
+  try{ const im=getPrep(), sc=im.sc, N={x:pts.N.x*sc,y:pts.N.y*sc}, K={x:pts.K.x*sc,y:pts.K.y*sc}, BAND=0.12;
+    const tr=traceEdge(im, N, K, facing, {dMin:-BAND, dMax:BAND, t0:0.25, t1:0.8, s0:-0.22, s1:-0.12, minL:15}); if(!tr) return null;
+    const {es,L}=tr; let mx=-1e9, mn=1e9; for(let i=Math.round(0.1*L);i<=Math.round(0.82*L);i++){ mx=Math.max(mx,es[i]); mn=Math.min(mn,es[i]); }
+    if (mx>=0.9*BAND*L || mn<=-0.9*BAND*L) return null;        // trace ran to the band edge: not the bridge
+    return fr.map(f=>es[Math.max(0,Math.min(es.length-1,Math.round(f*L)))]/sc);
+  }catch(e){ return null; } }
+// place the bridge points between N and K: on the skin edge when it can be read, otherwise on the N–K line. Points the user moved are left alone.
+const DFR=[0.3,0.5,0.7];
+function dorsInit(force){
+  if(!pts||!pts.N||!pts.K) return;
+  syncFacing();   // the anterior side must be right before looking for the skin edge
+  const N=pts.N, K=pts.K, ax=K.x-N.x, ay=K.y-N.y, L=Math.hypot(ax,ay); if (L<4) return;
+  const a={x:ax/L,y:ay/L}, b={x:facing*a.y, y:-facing*a.x};
+  const probe=greenProbe(), tro = probe ? null : traceDorsumOffsets(DFR);
+  DORS.forEach((k,i)=>{ if (pts[k] && pts[k].manual && !force) return;
+    const f=DFR[i], bx0=N.x+a.x*f*L, by0=N.y+a.y*f*L; let off=0;
+    if (probe){ let seenBg=false; for(let t=0.2*L; t>=-0.2*L; t-=0.5){ const g=probe(bx0+b.x*t, by0+b.y*t); if(g) seenBg=true; else if(seenBg){ off=t; break; } } }
+    else if (tro) off=tro[i];
+    pts[k]={x:bx0+b.x*off, y:by0+b.y*off, est:true}; });
+}
+// dorsum = the three bridge points measured against the straight N–K line (anterior + = hump, posterior − = concave), in % of N–K
 function computeDorsum(){
-  if(!pts||!pts.N||!pts.K||!img) return null;
-  const key=[pts.N.x,pts.N.y,pts.K.x,pts.K.y,facing,imgW].map(v=>Math.round(v*10)).join(',');
-  if (key===dorsKey) return dors;
-  dorsKey=key;
-  const im=getPrep(), sc=im.sc, N={x:pts.N.x*sc,y:pts.N.y*sc}, K={x:pts.K.x*sc,y:pts.K.y*sc};
-  const BAND=0.12;   // a real hump/saddle stays well within ±12% of N–K; wider bands latch onto background edges (glow, shadows)
-  const tr=traceEdge(im, N, K, facing, {dMin:-BAND, dMax:BAND, t0:0.25, t1:0.8, s0:-0.22, s1:-0.12, minL:15});
-  if(!tr){ dors=null; return null; }
-  const {es,a,b,L}=tr; const i0=Math.round(0.1*L), i1=Math.round(0.82*L);
-  let mx=-Infinity, mxI=i0, mn=Infinity, mnI=i0;
-  for(let i=i0;i<=i1;i++){ if(es[i]>mx){mx=es[i];mxI=i;} if(es[i]<mn){mn=es[i];mnI=i;} }
-  const img2=(i,off)=>({x:(N.x+a.x*i+b.x*off)/sc, y:(N.y+a.y*i+b.y*off)/sc});
-  const path=[]; for(let i=0;i<es.length;i+=Math.max(1,Math.round(L/60))) path.push(img2(i,es[i]));
-  const hump=Math.max(0,mx)/L*100, sad=Math.max(0,-mn)/L*100;
-  // the trace ran into the edge of the search band: it is following something other than the bridge (or K is off the tip)
-  const edgeHit = mx>=0.9*BAND*L || mn<=-0.9*BAND*L;
-  const main = hump>=sad ? {kind:'hump', pct:hump, i:mxI} : {kind:'concave', pct:sad, i:mnI};
-  dors={hump, sad, main, path, L, es, unreliable:edgeHit, at:(f)=>{ const i=Math.max(0,Math.min(es.length-1,Math.round(f*L))); return {f:i/L, pt:img2(i,es[i]), off:es[i]/L}; },
-        peak:img2(main.i, es[main.i]), foot:img2(main.i,0)};
+  if(!pts||!pts.N||!pts.K){ dors=null; return null; }
+  if (DORS.some(k=>!pts[k])) dorsInit(false);
+  const N=pts.N, K=pts.K, ax=K.x-N.x, ay=K.y-N.y, L=Math.hypot(ax,ay)||1, a={x:ax/L,y:ay/L}, b={x:facing*a.y, y:-facing*a.x};
+  const offs=DORS.map(k=>{ const px=pts[k].x-N.x, py=pts[k].y-N.y; return {k, f:(px*a.x+py*a.y)/L, off:px*b.x+py*b.y}; });
+  let hi=offs[0], lo=offs[0]; offs.forEach(o=>{ if(o.off>hi.off) hi=o; if(o.off<lo.off) lo=o; });
+  const hump=Math.max(0,hi.off)/L*100, sad=Math.max(0,-lo.off)/L*100, m = hump>=sad ? hi : lo;
+  const main={kind: hump>=sad ? 'hump' : 'concave', pct: Math.max(hump,sad), k:m.k};
+  const path=[{x:N.x,y:N.y}, ...offs.slice().sort((p,q)=>p.f-q.f).map(o=>({x:pts[o.k].x,y:pts[o.k].y})), {x:K.x,y:K.y}];
+  dors={hump, sad, main, path, L, offs, unreliable:false, peak:{x:pts[m.k].x,y:pts[m.k].y}, foot:{x:N.x+a.x*m.f*L, y:N.y+a.y*m.f*L}};
   return dors;
 }
 
@@ -739,7 +755,7 @@ function draw(){
     ctx.strokeStyle='rgba(255,255,255,.85)'; ctx.lineWidth=3; ctx.stroke(); ctx.strokeStyle='#7a3fa0'; ctx.lineWidth=1.4; ctx.stroke(); }
     if (dors.unreliable){}
     else if (dors.main.pct>DTOL){ const p=toScreen(dors.peak), f=toScreen(dors.foot); line(f,p,'rgba(255,255,255,.9)',4,[]); line(f,p,'#b23f2c',2.2,[]);
-      pill(`${dors.main.kind==='hump'?'hump +':'concave −'}${f1(dors.main.pct)}%`, p.x+(p.x-f.x)*0+facing*46, p.y-(dors.main.kind==='hump'?18:-18), '#b23f2c'); }
+      pill(`${dors.main.kind==='hump'?'hump +':'concave −'}${f1(dors.main.pct)}%`, p.x+facing*104, p.y-(dors.main.kind==='hump'?34:-34), '#b23f2c'); }
   }
   ORDER.forEach(k=>{ if(pts[k]) drawPoint(k); });
   drawPlacing();
@@ -789,6 +805,7 @@ function chipFor(row){
   return `<span class="chip ${cls}">${word}</span>`;
 }
 function renderResults(){
+  if (pts && DET.every(k=>pts[k])) computeDorsum();     // makes sure the three bridge points exist
   if (!pts || ORDER.some(k=>!pts[k])) return;
   const {t,A}=measure();
   computeDorsum();
@@ -802,7 +819,7 @@ function renderResults(){
   if (dors && dors.unreliable){ html+=`<tr class="grp"><td colspan="6">Nasal dorsum</td></tr><tr><td class="ang">N–K line</td><td class="desc">The bridge could not be traced reliably on this photo (background edge or K not on the nose tip). Check K, or judge the bridge visually.</td><td class="num">—</td><td class="num">0%</td><td class="num">—</td><td><span class="chip c-est">Unclear</span></td></tr>`; }
   else if (dors){ const m=dors.main, v=m.kind==='hump'?m.pct:-m.pct;
     const ch = m.pct<=DTOL ? '<span class="chip c-ok">Straight</span>' : `<span class="chip ${m.pct<=2*DTOL?'c-mild':'c-bad'}">${m.kind==='hump'?'Hump':'Concave'}</span>`;
-    html+=`<tr class="grp"><td colspan="6">Nasal dorsum</td></tr><tr><td class="ang">N–K line</td><td class="desc">Largest dorsal deviation from the straight N–K line, % of N–K length (+ hump, − concave) <span class="muted small">· Modifiable</span></td><td class="num">${v>0?'+':v<0?'−':''}${f1(Math.abs(v))}%</td><td class="num">0%</td><td class="num">${sgn(v)}</td><td>${ch}</td></tr>`; }
+    html+=`<tr class="grp"><td colspan="6">Nasal dorsum</td></tr><tr><td class="ang">N–K line</td><td class="desc">Largest distance of the three bridge points (D1–D3) from the straight N–K line, % of N–K length (+ hump, − concave) <span class="muted small">· Modifiable</span></td><td class="num">${v>0?'+':v<0?'−':''}${f1(Math.abs(v))}%</td><td class="num">0%</td><td class="num">${sgn(v)}</td><td>${ch}</td></tr>`; }
   $('tbody').innerHTML=html;
   // diagnosis
   const D=diagnose(t); renderVerdict(D,t);
@@ -903,16 +920,14 @@ function planTargets(){
   if (move.L) T.L = toAngle(pts.L, 4);
   // independence: targets above come from the full plan; a cancelled component just stays put, the others keep their own amounts
   [['chin','C'],['nose','K'],['U','U'],['L','L']].forEach(([m,k])=>{ if (simOff[m]){ move[m]=false; T[k]={x:pts[k].x,y:pts[k].y}; } });
-  // dorsum: keep it on (or bring it to) the straight line from N to the new tip
+  // dorsum: the three bridge points are brought onto the straight line from N to the (new) tip; if that change is cancelled
+  // they keep their own offset from the line, so the bridge keeps its shape while the nose moves
   const extra=[]; const d=computeDorsum();
-  move.dorsum = !!d && !d.unreliable && (all ? d.main.pct>0.3 : d.main.pct>DTOL);
+  move.dorsum = !!d && (all ? d.main.pct>0.3 : d.main.pct>DTOL);
   want.dorsum = move.dorsum; if (simOff.dorsum) move.dorsum=false;
-  if (d && !d.unreliable){
-    const kx=T.K.x-N.x, ky=T.K.y-N.y, kl=Math.hypot(kx,ky), bx=facing*ky/kl, by=-facing*kx/kl;
-    const ox=pts.K.x-N.x, oy=pts.K.y-N.y, ol=Math.hypot(ox,oy);
-    [0.2,0.35,0.5,0.65,0.8].forEach(f=>{ const q=d.at(f); const off = move.dorsum ? 0 : q.off*ol*(kl/ol);
-      const t={x:N.x+kx*q.f+bx*off, y:N.y+ky*q.f+by*off};
-      if (Math.hypot(t.x-q.pt.x,t.y-q.pt.y)>0.3 || move.nose) extra.push({sx:q.pt.x,sy:q.pt.y,tx:t.x,ty:t.y}); });
+  if (d){
+    const kx=T.K.x-N.x, ky=T.K.y-N.y, kl=Math.hypot(kx,ky)||1, bx=facing*ky/kl, by=-facing*kx/kl;
+    d.offs.forEach(o=>{ const off = move.dorsum ? 0 : o.off*(kl/d.L); T[o.k]={x:N.x+kx*o.f+bx*off, y:N.y+ky*o.f+by*off}; });
   }
   return {T, move, D, extra, want};
 }
@@ -959,7 +974,7 @@ function warpImage(T, extra, chin, refine){
         const mu=ss(-0.15,0.06,b)*(1-ss(Math.max(bK,1)+0.05,Math.max(bK,1)+0.4,b))*(1-ss(1.05,1.6,s));
         const k=lam*mu; return k<1e-3 ? null : {x:dK.x*k, y:dK.y*k}; } }; })();
   const noseAt=(x,y)=>{ const v=nose&&nose.at(x,y); return v||{x:0,y:0}; };
-  const RAD={N:0.15,K:0.24,K1:0.15,U:0.13,U1:0.15,L:0.13,C:0.2};
+  const RAD={N:0.15,K:0.24,K1:0.15,U:0.13,U1:0.15,L:0.13,C:0.2,D1:0.11,D2:0.11,D3:0.11};
   // each lip moves on its own side of the lip line (stomion ≈ midway between U and L along N–C): the upper lip's pull fades out
   // below it and the lower lip's above it, so moving one lip does not drag the other
   const tAx=(x,y)=>((x-Ns.x)*ua.x+(y-Ns.y)*ua.y)/NC, tU=tAx(pts.U.x*sc,pts.U.y*sc), tS=(tU+tL)/2, mS=Math.max(0.004,0.22*Math.abs(tL-tU));
@@ -1218,7 +1233,7 @@ function placeTap(p){
     const [Np,Cp]=guided.pts; endGuided(); applyGuided(Np,Cp); return;
   }
   if (placing){ const k=placing.order[placing.i]; pts=pts||{}; pts[k]={...p, est:false}; placing.i++; sel=k;
-    if (placing.i>=placing.order.length){ placing=null; $('manual').setAttribute('aria-pressed','false'); $('placebar').hidden=true; status('All seven points placed. Drag any point to refine it.'); }
+    if (placing.i>=placing.order.length){ placing=null; $('manual').setAttribute('aria-pressed','false'); $('placebar').hidden=true; status('All seven points placed. Now drag the three red bridge points (D1–D3) onto the nasal dorsum.'); }
     else updatePlaceBar();
     draw(); if(pts.N&&pts.C&&pts.K&&pts.U&&pts.L&&pts.K1&&pts.U1) renderResults(); }
 }
@@ -1256,6 +1271,7 @@ cv.addEventListener('pointermove',e=>{
   }
 });
 const endDrag=()=>{ if(!dragging) return; const k=dragging; dragging=null; loupeAt=null;
+  if (k==='N'||k==='K') dorsInit(false);   // bridge points the user has not placed follow the new N–K line
   if ((k==='N'||k==='C') && !['K','U','L'].some(q=>pts[q].manual)){
     const g=guidedDetect(origImg||img, pts.N, pts.C, facing);
     if (g){ ['K','U','L','K1','U1'].forEach(q=>{ if(!pts[q].manual) pts[q]={x:g.pts[q].x,y:g.pts[q].y,est:!g.got[q]}; }); draw(); renderResults(); status(`${k} moved. Nose and lips re-traced from the new N–C axis.`); return; }
@@ -1272,7 +1288,7 @@ cv.addEventListener('wheel',e=>{ if(!img) return; e.preventDefault(); const q=ev
 function zoomBtn(f){ const W=imgW*dispK, H=imgH*dispK; if(f===0){ vz=1; vx=0; vy=0; draw(); } else zoomAt(vz*f, W/2, H/2); }
 // ---------- fine-adjust panel (touch-friendly nudging) ----------
 let nudgeStep=0.5, nudgeTimer=0, nudgeRep=0;
-$('nudgeSel').innerHTML='<option value="">— Select —</option>'+ORDER.map(k=>`<option value="${k}">${k} · ${({N:'Nasion',K:'Nose tip',K1:'Alar base',U:'Upper lip',U1:'Commissure',L:'Lower lip',C:'Chin'})[k]}</option>`).join('');
+$('nudgeSel').innerHTML='<option value="">— Select —</option>'+ORDER.map(k=>`<option value="${k}">${k} · ${({D1:'Bridge 1',D2:'Bridge 2',D3:'Bridge 3',N:'Nasion',K:'Nose tip',K1:'Alar base',U:'Upper lip',U1:'Commissure',L:'Lower lip',C:'Chin'})[k]}</option>`).join('');
 function syncNudge(){ const s=$('nudgeSel'); if (s && s.value!==(sel||'')) s.value=sel||''; const m=$('nudgeMid'); if(m) m.textContent=sel||''; }
 function drawNudgeLoupe(){
   const L=$('nudgeLoupe'); if(!L || !nudgeOpen()) return; const g=L.getContext('2d'), S=148, R=S/2, Z=4;
@@ -1299,7 +1315,7 @@ $('nudgeSel').addEventListener('change',e=>{ sel=e.target.value||null; draw(); }
 $('nudge').querySelectorAll('.stepseg button').forEach(b=>b.addEventListener('click',()=>{ nudgeStep=+b.dataset.step; $('nudge').querySelectorAll('.stepseg button').forEach(x=>x.setAttribute('aria-pressed', x===b)); }));
 function nudgeOnce(dx,dy){ if(!pts||!sel||!pts[sel]) return; const st=nudgeStep/(dispK*vz); // step in screen px, so zooming in gives finer moves
   const p=clampPt({x:pts[sel].x+dx*st, y:pts[sel].y+dy*st}); pts[sel].x=p.x; pts[sel].y=p.y; pts[sel].est=false; pts[sel].manual=true; draw(); }
-function nudgeStop(){ clearTimeout(nudgeTimer); clearInterval(nudgeRep); nudgeTimer=0; nudgeRep=0; if(pts&&sel){ renderResults(); status(`${sel} (${NAMES[sel]}) adjusted. Results updated.`); } }
+function nudgeStop(){ clearTimeout(nudgeTimer); clearInterval(nudgeRep); nudgeTimer=0; nudgeRep=0; if(pts&&(sel==='N'||sel==='K')) dorsInit(false); if(pts&&sel){ renderResults(); status(`${sel} (${NAMES[sel]}) adjusted. Results updated.`); } }
 $('nudge').querySelectorAll('.pad button').forEach(b=>{ const [dx,dy]=b.dataset.d.split(',').map(Number);
   b.addEventListener('pointerdown',e=>{ e.preventDefault(); if(!sel){ status('Select a landmark first.','warn'); return; } b.setPointerCapture(e.pointerId); nudgeOnce(dx,dy);
     nudgeTimer=setTimeout(()=>{ nudgeRep=setInterval(()=>nudgeOnce(dx,dy), 45); }, 380); });
@@ -1313,7 +1329,7 @@ $('nudge').querySelectorAll('.pad button').forEach(b=>{ const [dx,dy]=b.dataset.
 cv.addEventListener('keydown',e=>{
   if(!pts) return;
   if(e.key==='Tab') return;
-  if(/^[1-7]$/.test(e.key)){ sel=ORDER[+e.key-1]; draw(); status(`Selected ${sel}. Arrow keys move it (Shift for 10 px).`); e.preventDefault(); return; }
+  if(/^[0-9]$/.test(e.key) && ORDER[(+e.key||10)-1]){ sel=ORDER[(+e.key||10)-1]; draw(); status(`Selected ${sel}. Arrow keys move it (Shift for 10 px).`); e.preventDefault(); return; }
   if(!sel) return; const st=e.shiftKey?10:1; const m={ArrowLeft:[-st,0],ArrowRight:[st,0],ArrowUp:[0,-st],ArrowDown:[0,st]}[e.key];
   if(m){ pts[sel].x+=m[0]; pts[sel].y+=m[1]; pts[sel].est=false; draw(); renderResults(); e.preventDefault(); }
 });
@@ -1347,7 +1363,7 @@ function applyGuided(Np,Cp){
     pts.K=P(30,nc*.46); pts.U=P(8,nc*.67); pts.L=P(4,nc*.81); pts.K1=P(-10,nc*.49); pts.U1=P(-10,nc*.72);
     draw(); renderResults(); status('The profile edge next to the face could not be separated from the background. Points were placed at the ideal angles as a start: drag each onto the face.','err'); return; }
   facing=r.side; $('faceR').setAttribute('aria-pressed', facing>0); $('faceL').setAttribute('aria-pressed', facing<0);
-  pts={}; ORDER.forEach(k=>pts[k]={x:r.pts[k].x,y:r.pts[k].y,est:!r.got[k]});
+  pts={}; DET.forEach(k=>pts[k]={x:r.pts[k].x,y:r.pts[k].y,est:!r.got[k]});
   draw(); renderResults();
   const miss=['U','L'].filter(k=>!r.got[k]);
   status(miss.length ? `Found the nose tip. ${miss.join(' and ')} need placing by hand: drag the dashed points onto the lips.` : 'Nose tip and lips found along the N–C axis. Check K1 and U1 (dashed estimates) and drag them onto the alar base and lip commissure.', 'warn');
@@ -1360,8 +1376,8 @@ function updatePlaceBar(){
   status(`Tap the ${NAMES[placing.order[placing.i]].toLowerCase()} (${placing.order[placing.i]}).`);
 }
 $('manual').addEventListener('click',()=>{
-  if (placing){ placing=null; $('manual').setAttribute('aria-pressed','false'); $('placebar').hidden=true; status('Placement cancelled.'); if(!pts||ORDER.some(k=>!pts[k])) runDetect(false); return; }
-  endGuided(); placing={order:ORDER.slice(), i:0}; pts={}; sel=null; $('manual').setAttribute('aria-pressed','true'); updatePlaceBar(); draw();
+  if (placing){ placing=null; $('manual').setAttribute('aria-pressed','false'); $('placebar').hidden=true; status('Placement cancelled.'); if(!pts||DET.some(k=>!pts[k])) runDetect(false); return; }
+  endGuided(); placing={order:DET.slice(), i:0}; pts={}; sel=null; $('manual').setAttribute('aria-pressed','true'); updatePlaceBar(); draw();
 });
 
 function runDetect(keepFacing){
@@ -1374,7 +1390,7 @@ function runDetect(keepFacing){
     draw(); return;
   }
   facing=r.side; $('faceR').setAttribute('aria-pressed', facing>0); $('faceL').setAttribute('aria-pressed', facing<0);
-  pts={}; ORDER.forEach(k=>{ pts[k]={x:r.pts[k].x, y:r.pts[k].y, est: !r.got[k]}; });
+  pts={}; DET.forEach(k=>{ pts[k]={x:r.pts[k].x, y:r.pts[k].y, est: !r.got[k]}; });
   if (r.got.C){ const g=guidedDetect(origImg||img, r.pts.N, r.pts.C, r.side); if (g && g.got.U && g.got.L){ ['K','U','L','K1','U1'].forEach(k=>{ pts[k]={x:g.pts[k].x,y:g.pts[k].y,est:!g.got[k]}; }); } }
   const missing=['U','L','C'].filter(k=>!r.got[k]);
   const tk=theta(pts.K), tu=theta(pts.U), tl=theta(pts.L);
@@ -1382,8 +1398,8 @@ function runDetect(keepFacing){
   const plausible = !missing.length && tk>14 && tk<52 && tu>-8 && tu<26 && tl>-12 && tl<26 && pts.C.y>pts.N.y && axTilt<35;
   if (!plausible && !isSample){ startGuided('The automatic result did not look right for this photo (busy background or unusual framing). Tap soft-tissue nasion (N), then the chin point (C): the tool will trace the nose and lips from there.'); return; }
   sel=null; draw(); renderResults();
-  if (missing.length) status(`Detected N and K. ${missing.join(', ')} could not be found and were placed from proportions; drag them into place. K1 and U1 are estimates.`,'warn');
-  else status(`Landmarks detected${isSample?' on the sample illustration':''}. If any point is off, drag it, or use “Tap N + C” for a more reliable detection. K1 and U1 are estimates.`,'warn');
+  if (missing.length) status(`Detected N and K. ${missing.join(', ')} could not be found and were placed from proportions; drag them into place. K1 and U1 are estimates. Drag the three red bridge points (D1–D3) onto the nasal dorsum.`,'warn');
+  else status(`Landmarks detected${isSample?' on the sample illustration':''}. If any point is off, drag it, or use “Tap N + C” for a more reliable detection. K1 and U1 are estimates. Drag the three red bridge points (D1–D3) onto the nasal dorsum.`,'warn');
 }
 // automatic enhancement on upload: resample, auto levels, edge sharpening (geometry unchanged)
 function enhanceImage(im){
@@ -1547,6 +1563,12 @@ function greenFromMask(im, M){
 let greenJob=0;
 // where the skin edge is along the ray from N through landmark k (needs the green background): image px, or null
 let edgeCv=null, edgeKey='';
+function greenProbe(){   // returns isBackground(x,y) in image px when the green background is on, else null
+  if (!greenOn || !img || img===origImg) return null;
+  const sc=Math.min(1, 900/Math.max(imgW,imgH)), w=Math.round(imgW*sc), h=Math.round(imgH*sc), key=img.src.length+':'+w;
+  if (edgeKey!==key){ edgeCv=document.createElement('canvas'); edgeCv.width=w; edgeCv.height=h; const g=edgeCv.getContext('2d',{willReadFrequently:true}); g.drawImage(img,0,0,w,h); edgeCv.data=g.getImageData(0,0,w,h).data; edgeKey=key; }
+  const d=edgeCv.data; return (x,y)=>{ const xi=Math.round(x*sc), yi=Math.round(y*sc); if(xi<0||yi<0||xi>=w||yi>=h) return true; const i=(yi*w+xi)*4; return d[i+1]>110 && d[i]<100 && d[i+2]<130; };
+}
 function skinEdgeAlong(k){
   if (!greenOn || !img || img===origImg || !pts || !pts.N || !pts[k]) return null;
   const sc=Math.min(1, 900/Math.max(imgW,imgH)), w=Math.round(imgW*sc), h=Math.round(imgH*sc);
@@ -1558,7 +1580,7 @@ function skinEdgeAlong(k){
   for (let t=0.35*L; t>=-0.35*L; t-=0.5){ const x=P.x+ux*t, y=P.y+uy*t; if (!isGreen(x,y)){ return {x, y, off:t}; } }
   return null;
 }
-function snapToEdge(k){ const e=skinEdgeAlong(k); if(!e) return false; pts[k].x=e.x; pts[k].y=e.y; pts[k].est=false; pts[k].manual=true; dorsKey=''; draw(); renderResults(); return true; }
+function snapToEdge(k){ const e=skinEdgeAlong(k); if(!e) return false; pts[k].x=e.x; pts[k].y=e.y; pts[k].est=false; pts[k].manual=true; dorsKey=''; if(k==='N'||k==='K') dorsInit(false); draw(); renderResults(); return true; }
 async function applyGreen(){
   if (isSample || !origImg) return;
   const job=++greenJob, src=origImg;
@@ -1572,7 +1594,7 @@ async function applyGreen(){
     if (r==='busy') why+='; the room behind the face is too busy for the offline colour method'; else if (r){ url=r; how='colour'; } }
   if (job!==greenJob || src!==origImg) return;
   if (!url){ status(`Green background not applied: ${why||'the backdrop could not be separated from the face safely'}. Connect to the internet and tap Green background to retry.`,'warn'); return; }
-  const g=new Image(); g.onload=()=>{ if(!greenOn || job!==greenJob) return; img=g; draw(); if(pts) simulate();
+  const g=new Image(); g.onload=()=>{ if(!greenOn || job!==greenJob) return; img=g; if(pts && pts.N && pts.K){ dorsInit(false); } draw(); if(pts){ renderResults(); simulate(); }
     status(how==='colour' ? `Green background applied (offline colour mode${why?': '+why:''}). If any part of the face turned green, switch it off with the Green background button.` : 'Green background applied (AI person model). Measurements always use the original photo.'); };
   g.src=url;
 }
@@ -1610,7 +1632,7 @@ new MutationObserver(()=>renderResults()).observe(document.documentElement,{attr
 
 renderRows();
 loadSample();
-window.__asta = {enhanceImage, exportPdf, setDl:(d)=>{dlNS=d;}, prepImage, axisProfile, guidedDetect, simulate, planTargets, detect, measure, diagnose, get pts(){return pts;}, get facing(){return facing;}, get imgW(){return imgW;}, get imgSrc(){return img&&img.src;}, setPts:(P)=>{ pts={}; for(const k in P) pts[k]={x:P[k].x,y:P[k].y,est:false,manual:true}; dorsKey=''; syncFacing(); draw(); renderResults(); simulate(); }, loadImage, makeSample, setTol:v=>{tol=v;}};
+window.__asta = {enhanceImage, exportPdf, setDl:(d)=>{dlNS=d;}, prepImage, axisProfile, guidedDetect, simulate, planTargets, detect, measure, diagnose, get pts(){return pts;}, get facing(){return facing;}, get imgW(){return imgW;}, get imgSrc(){return img&&img.src;}, setPts:(P)=>{ pts={}; for(const k in P) pts[k]={x:P[k].x,y:P[k].y,est:false,manual:true}; dorsKey=''; dorsInit(false); syncFacing(); draw(); renderResults(); simulate(); }, loadImage, makeSample, setTol:v=>{tol=v;}};
 })();
 </script>
 
