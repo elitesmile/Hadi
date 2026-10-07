@@ -939,7 +939,6 @@ function solve(A, B){ // A n×n, B n×2 → X n×2 (Gaussian elimination)
   return M.map((r,i)=>[r[n]/r[i], r[n+1]/r[i]]);
 }
 const TIPR=0.5;   // share of the nose height (base line → tip) that moves as a rigid tip block
-const TIP={c:0.65, r:0.2, s:0.1, n:0.9, rot:14, p:1.6};   // tip definition after a reduction: centre (K1→K fraction), radius (× N–K), size reduction, taper strength at the apex, upward rotation (°), taper curve
 function warpImage(T, extra, chin, refine){
   const sc=Math.min(1, 1100/Math.max(imgW,imgH)), w=Math.round(imgW*sc), h=Math.round(imgH*sc);
   const src=document.createElement('canvas'); src.width=w; src.height=h; const sg=src.getContext('2d',{willReadFrequently:true}); sg.drawImage(img,0,0,w,h);
@@ -993,17 +992,7 @@ function warpImage(T, extra, chin, refine){
     x0=Math.max(0,Math.floor(Math.min(...xs)-pad)); x1=Math.min(w-1,Math.ceil(Math.max(...xs)+pad));
     y0=Math.max(0,Math.floor(Math.min(...ys)-pad)); y1=Math.min(h-1,Math.ceil(Math.max(...ys)+pad)); }
   const sd=sg.getImageData(0,0,w,h).data, od=og.getImageData(0,0,w,h), o=od.data;
-  // tip definition (only when the nose is reduced): around the new tip the lobule is narrowed toward its axis (K1 → K),
-  // slightly reduced and rotated upward, so the tip stays sharp and acute instead of blunt. Smooth and monotonic: no folds.
-  const reduced = refine && (thetaIn(T.K,pts.N,pts.C) < thetaIn(pts.K,pts.N,pts.C) - 0.05);
-  const tip = reduced ? (()=>{ const TP=window.__tipP||TIP;
-      const Tx=T.K.x*sc, Ty=T.K.y*sc, Kx=pts.K1.x*sc, Ky=pts.K1.y*sc, Nx=pts.N.x*sc, Ny=pts.N.y*sc;
-      const cx=Kx+(Tx-Kx)*TP.c, cy=Ky+(Ty-Ky)*TP.c, al=Math.hypot(Tx-Kx,Ty-Ky)||1, a={x:(Tx-Kx)/al, y:(Ty-Ky)/al};
-      const nt=Math.hypot(Tx-Nx,Ty-Ny), rho=Math.max(6, TP.r*nt);
-      const up = ((Tx-cx)*(Ny-cy)-(Ty-cy)*(Nx-cx))>0 ? -1 : 1;   // rotation sense that turns the tip toward N (upward); verified visually
-      const uA=(Tx-cx)*a.x+(Ty-cy)*a.y;   // apex distance from the centre along the axis
-      return {cx, cy, a, b:{x:-a.y, y:a.x}, rho, uA, s:TP.s, n:TP.n, pw:TP.p||1.6, th:up*TP.rot*Math.PI/180}; })() : null;
-  if (tip){ const R=tip.rho*3; x0=Math.max(0,Math.min(x0,Math.floor(tip.cx-R))); x1=Math.min(w-1,Math.max(x1,Math.ceil(tip.cx+R))); y0=Math.max(0,Math.min(y0,Math.floor(tip.cy-R))); y1=Math.min(h-1,Math.max(y1,Math.ceil(tip.cy+R))); }
+  const tip=null;   // tip sharpening removed on request: the tip keeps its own shape
   const edgeM=Math.max(24, 0.07*Math.min(w,h));
   for(let y=y0;y<=y1;y++){ for(let x=x0;x<=x1;x++){
     let qx=x, qy=y;
